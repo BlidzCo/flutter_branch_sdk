@@ -500,6 +500,7 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     result.success(Boolean.TRUE);
   }
 
+  @UiThread
   private void trackContent(MethodCall call) {
     LogUtils.debug(DEBUG_NAME, "trackContent call");
     if (!(call.arguments instanceof Map)) {
@@ -525,6 +526,7 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     logEventThread.start();
   }
 
+  @UiThread
   private void trackContentWithoutBuo(MethodCall call) {
     LogUtils.debug(DEBUG_NAME, "trackContentWithoutBuo call");
     if (!(call.arguments instanceof Map)) {
