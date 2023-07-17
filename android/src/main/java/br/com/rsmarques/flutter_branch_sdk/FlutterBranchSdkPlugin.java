@@ -181,6 +181,7 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
 
   @Override
   public void onActivityResumed(Activity activity) {
+    setActivity(activity);
   }
 
   @Override
