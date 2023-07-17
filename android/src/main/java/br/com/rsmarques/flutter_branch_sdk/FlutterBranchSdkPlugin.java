@@ -513,12 +513,16 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     }
     final BranchEvent event = branchSdkHelper.convertToEvent((HashMap<String, Object>) argsMap.get("event"));
 
-    new Handler(Looper.getMainLooper()).post(new Runnable() {
-      @Override
-      public void run() {
-        event.addContentItems(buo).logEvent(context);
-      }
-    });
+    Runnable logEventRunnable = new Runnable() {
+        @Override
+        public void run() {
+            event.addContentItems(buo).logEvent(context);
+        }
+    };
+
+    // Run the code in a separate thread
+    Thread logEventThread = new Thread(logEventRunnable);
+    logEventThread.start();
   }
 
   private void trackContentWithoutBuo(MethodCall call) {
@@ -528,13 +532,17 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     }
     HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
     final BranchEvent event = branchSdkHelper.convertToEvent((HashMap<String, Object>) argsMap.get("event"));
+    
+    Runnable logEventRunnable = new Runnable() {
+        @Override
+        public void run() {
+            event.logEvent(context);
+        }
+    };
 
-    new Handler(Looper.getMainLooper()).post(new Runnable() {
-      @Override
-      public void run() {
-        event.logEvent(context);
-      }
-    });
+    // Run the code in a separate thread
+    Thread logEventThread = new Thread(logEventRunnable);
+    logEventThread.start();
   }
 
   private void setIdentity(MethodCall call) {
