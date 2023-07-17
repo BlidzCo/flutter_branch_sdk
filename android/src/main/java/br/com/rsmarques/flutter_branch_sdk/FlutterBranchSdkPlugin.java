@@ -179,7 +179,6 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
   @Override
   public void onActivityStarted(Activity activity) {
     LogUtils.debug(DEBUG_NAME, "onActivityStarted call");
-    Branch.sessionBuilder(activity).withCallback(branchReferralInitListener).withData(activity.getIntent().getData()).init();
   }
 
   @Override
