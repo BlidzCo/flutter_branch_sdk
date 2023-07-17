@@ -89,12 +89,15 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
 
   private void setActivity(Activity activity) {
     LogUtils.debug(DEBUG_NAME, "setActivity call");
-    this.activity = activity;
+    if(this.activity == null) {
+       this.activity = activity;
     activity.getApplication().registerActivityLifecycleCallbacks(this);
 
     if (this.activity != null && FlutterFragmentActivity.class.isAssignableFrom(activity.getClass())) {
       Branch.sessionBuilder(activity).withCallback(branchReferralInitListener).withData(activity.getIntent().getData()).init();
     }
+    }
+   
   }
 
   private void teardownChannels() {
@@ -181,7 +184,6 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
 
   @Override
   public void onActivityResumed(Activity activity) {
-    setActivity(activity);
   }
 
   @Override
@@ -501,7 +503,6 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     result.success(Boolean.TRUE);
   }
 
-  @UiThread
   private void trackContent(MethodCall call) {
     LogUtils.debug(DEBUG_NAME, "trackContent call");
     if (!(call.arguments instanceof Map)) {
@@ -515,19 +516,14 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     }
     final BranchEvent event = branchSdkHelper.convertToEvent((HashMap<String, Object>) argsMap.get("event"));
 
-    Runnable logEventRunnable = new Runnable() {
-        @Override
-        public void run() {
-            event.addContentItems(buo).logEvent(context);
-        }
-    };
-
-    // Run the code in a separate thread
-    Thread logEventThread = new Thread(logEventRunnable);
-    logEventThread.start();
+    new Handler(Looper.getMainLooper()).post(new Runnable() {
+      @Override
+      public void run() {
+        event.addContentItems(buo).logEvent(context);
+      }
+    });
   }
 
-  @UiThread
   private void trackContentWithoutBuo(MethodCall call) {
     LogUtils.debug(DEBUG_NAME, "trackContentWithoutBuo call");
     if (!(call.arguments instanceof Map)) {
@@ -535,17 +531,13 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
     }
     HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
     final BranchEvent event = branchSdkHelper.convertToEvent((HashMap<String, Object>) argsMap.get("event"));
-    
-    Runnable logEventRunnable = new Runnable() {
-        @Override
-        public void run() {
-            event.logEvent(context);
-        }
-    };
 
-    // Run the code in a separate thread
-    Thread logEventThread = new Thread(logEventRunnable);
-    logEventThread.start();
+    new Handler(Looper.getMainLooper()).post(new Runnable() {
+      @Override
+      public void run() {
+        event.logEvent(context);
+      }
+    });
   }
 
   private void setIdentity(MethodCall call) {
