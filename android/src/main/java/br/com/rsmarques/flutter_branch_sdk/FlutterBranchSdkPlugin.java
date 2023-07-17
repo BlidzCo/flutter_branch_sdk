@@ -183,6 +183,10 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
 
   @Override
   public void onActivityResumed(Activity activity) {
+    if(this.activity == activity) {
+      Branch.sessionBuilder(this.activity).withCallback(branchReferralInitListener).withData(activity.getIntent().getData()).reInit();
+    }
+    
   }
 
   @Override
