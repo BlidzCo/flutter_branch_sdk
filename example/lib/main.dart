@@ -5,42 +5,52 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
+import 'package:uuid/uuid.dart';
 
 import 'custom_button.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   //FlutterBranchSdk.setPreinstallCampaign('My Campaign Name');
   //FlutterBranchSdk.setPreinstallPartner('Branch \$3p Parameter Value');
-
-  //FlutterBranchSdk.addFacebookPartnerParameter(
-  //    key: 'em',
-  //    value: '11234e56af071e9c79927651156bd7a10bca8ac34672aba121056e2698ee7088');
   //FlutterBranchSdk.clearPartnerParameters();
-
-  //FlutterBranchSdk.addSnapPartnerParameter(
-  //    key: 'hashed_email_address',
-  //    value:
-  //        '11234e56af071e9c79927651156bd7a10bca8ac34672aba121056e2698ee7088');
-
+  /*
+  FlutterBranchSdk.addFacebookPartnerParameter(
+      key: 'em',
+      value:
+          '11234e56af071e9c79927651156bd7a10bca8ac34672aba121056e2698ee7088');
+  FlutterBranchSdk.addSnapPartnerParameter(
+      key: 'hashed_email_address',
+      value:
+          '11234e56af071e9c79927651156bd7a10bca8ac34672aba121056e2698ee7088');
+  FlutterBranchSdk.setRequestMetadata('key1', 'value1');
+  FlutterBranchSdk.setRequestMetadata('key2', 'value2');
+  */
+  //await FlutterBranchSdk.requestTrackingAuthorization();
+  await FlutterBranchSdk.init(
+      useTestKey: true, enableLogging: true, disableTracking: false);
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       title: "Flutter Branch SDK Example",
       debugShowCheckedModeBanner: false,
-      home: HomePage(),
+      home: const HomePage(),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: false,
+      ),
     );
   }
 }
 
 class HomePage extends StatefulWidget {
-  const HomePage({Key? key}) : super(key: key);
+  const HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -51,10 +61,10 @@ class _HomePageState extends State<HomePage> {
       GlobalKey<ScaffoldMessengerState>();
 
   BranchContentMetaData metadata = BranchContentMetaData();
-  BranchUniversalObject? buo;
   BranchLinkProperties lp = BranchLinkProperties();
-  BranchEvent? eventStandard;
-  BranchEvent? eventCustom;
+  late BranchUniversalObject buo;
+  late BranchEvent eventStandard;
+  late BranchEvent eventCustom;
 
   StreamSubscription<Map>? streamSubscription;
   StreamController<String> controllerData = StreamController<String>();
@@ -62,6 +72,7 @@ class _HomePageState extends State<HomePage> {
 
   static const imageURL =
       'https://raw.githubusercontent.com/RodrigoSMarques/flutter_branch_sdk/master/assets/branch_logo_qrcode.jpeg';
+
   @override
   void initState() {
     super.initState();
@@ -69,8 +80,6 @@ class _HomePageState extends State<HomePage> {
     listenDynamicLinks();
 
     initDeepLinkData();
-
-    FlutterBranchSdk.setIdentity('branch_user_test');
 
     //requestATTTracking();
   }
@@ -94,36 +103,58 @@ class _HomePageState extends State<HomePage> {
   }
 
   void listenDynamicLinks() async {
-    streamSubscription = FlutterBranchSdk.initSession().listen((data) {
+    streamSubscription = FlutterBranchSdk.listSession().listen((data) async {
       print('listenDynamicLinks - DeepLink Data: $data');
       controllerData.sink.add((data.toString()));
+
+      /*
+      if (data.containsKey('+is_first_session') &&
+          data['+is_first_session'] == true) {
+        // wait 3 seconds to obtain installation data
+        await Future.delayed(const Duration(seconds: 3));
+        Map<dynamic, dynamic> params =
+            await FlutterBranchSdk.getFirstReferringParams();
+        controllerData.sink.add(params.toString());
+        return;
+      }
+       */
+
       if (data.containsKey('+clicked_branch_link') &&
           data['+clicked_branch_link'] == true) {
         print(
             '------------------------------------Link clicked----------------------------------------------');
+        print('Title: ${data['\$og_title']}');
         print('Custom string: ${data['custom_string']}');
         print('Custom number: ${data['custom_number']}');
         print('Custom bool: ${data['custom_bool']}');
+        print('Custom date: ${data['custom_date_created']}');
         print('Custom list number: ${data['custom_list_number']}');
         print(
             '------------------------------------------------------------------------------------------------');
         showSnackBar(
-            message: 'Link clicked: Custom string - ${data['custom_string']}',
+            message:
+                'Link clicked: Custom string - ${data['custom_string']} - Date: ${data['custom_date_created'] ?? ''}',
             duration: 10);
       }
     }, onError: (error) {
-      print('InitSesseion error: ${error.toString()}');
+      print('listSession error: ${error.toString()}');
     });
   }
 
   void initDeepLinkData() {
+    final DateTime today = DateTime.now();
+    String dateString =
+        '${today.year}-${today.month}-${today.day} ${today.hour}:${today.minute}:${today.second}';
+
     metadata = BranchContentMetaData()
       ..addCustomMetadata('custom_string', 'abcd')
       ..addCustomMetadata('custom_number', 12345)
       ..addCustomMetadata('custom_bool', true)
       ..addCustomMetadata('custom_list_number', [1, 2, 3, 4, 5])
       ..addCustomMetadata('custom_list_string', ['a', 'b', 'c'])
-      //--optional Custom Metadata
+      ..addCustomMetadata('custom_date_created', dateString);
+    //--optional Custom Metadata
+    /*
       ..contentSchema = BranchContentSchema.COMMERCE_PRODUCT
       ..price = 50.99
       ..currencyType = BranchCurrencyType.BRL
@@ -145,26 +176,20 @@ class _HomePageState extends State<HomePage> {
           country: 'Brazil',
           postalCode: '99999-987')
       ..setLocation(31.4521685, -114.7352207);
+      */
 
+    final canonicalIdentifier = const Uuid().v4();
     buo = BranchUniversalObject(
-        canonicalIdentifier: 'flutter/branch',
+        canonicalIdentifier: 'flutter/branch_$canonicalIdentifier',
         //parameter canonicalUrl
         //If your content lives both on the web and in the app, make sure you set its canonical URL
         // (i.e. the URL of this piece of content on the web) when building any BUO.
         // By doing so, we’ll attribute clicks on the links that you generate back to their original web page,
         // even if the user goes to the app instead of your website! This will help your SEO efforts.
-        canonicalUrl: 'https://flutter.dev',
-        title: 'Flutter Branch Plugin',
+        //canonicalUrl: 'https://flutter.dev',
+        title: 'Flutter Branch Plugin - $dateString',
         imageUrl: imageURL,
-        contentDescription: 'Flutter Branch Description',
-        /*
-        contentMetadata: BranchContentMetaData()
-          ..addCustomMetadata('custom_string', 'abc')
-          ..addCustomMetadata('custom_number', 12345)
-          ..addCustomMetadata('custom_bool', true)
-          ..addCustomMetadata('custom_list_number', [1, 2, 3, 4, 5])
-          ..addCustomMetadata('custom_list_string', ['a', 'b', 'c']),
-         */
+        contentDescription: 'Flutter Branch Description - $dateString',
         contentMetadata: metadata,
         keywords: ['Plugin', 'Branch', 'Flutter'],
         publiclyIndex: true,
@@ -172,15 +197,15 @@ class _HomePageState extends State<HomePage> {
         expirationDateInMilliSec: DateTime.now()
             .add(const Duration(days: 365))
             .millisecondsSinceEpoch);
-
     lp = BranchLinkProperties(
-        channel: 'facebook',
+        channel: 'share',
         feature: 'sharing',
         //parameter alias
         //Instead of our standard encoded short url, you can specify the vanity alias.
         // For example, instead of a random string of characters/integers, you can set the vanity alias as *.app.link/devonaustin.
         // Aliases are enforced to be unique** and immutable per domain, and per link - they cannot be reused unless deleted.
         //alias: 'https://branch.io' //define link url,
+        //alias: 'p/$id', //define link url,
         stage: 'new share',
         campaign: 'campaign',
         tags: ['one', 'two', 'three'])
@@ -189,11 +214,15 @@ class _HomePageState extends State<HomePage> {
       ..addControlParam('\$match_duration', 7200)
       ..addControlParam('\$always_deeplink', true)
       ..addControlParam('\$android_redirect_timeout', 750)
-      ..addControlParam('referring_user_id', 'user_id');
+      ..addControlParam('referring_user_id', 'user_id') //;
+      ..addControlParam('\$ios_url', 'https://flutter-branch-sdk.netlify.app/')
+      ..addControlParam(
+          '\$android_url', 'https://flutter-branch-sdk.netlify.app/');
 
     eventStandard = BranchEvent.standardEvent(BranchStandardEvent.ADD_TO_CART)
       //--optional Event data
       ..transactionID = '12344555'
+      ..alias = 'StandardEventAlias'
       ..currency = BranchCurrencyType.BRL
       ..revenue = 1.5
       ..shipping = 10.2
@@ -209,13 +238,14 @@ class _HomePageState extends State<HomePage> {
           'Custom_Event_Property_Key2', 'Custom_Event_Property_val2');
 
     eventCustom = BranchEvent.customEvent('Custom_event')
+      ..alias = 'CustomEventAlias'
       ..addCustomData(
           'Custom_Event_Property_Key1', 'Custom_Event_Property_val1')
       ..addCustomData(
           'Custom_Event_Property_Key2', 'Custom_Event_Property_val2');
   }
 
-  void showSnackBar({required String message, int duration = 1}) {
+  void showSnackBar({required String message, int duration = 2}) {
     scaffoldMessengerKey.currentState!.removeCurrentSnackBar();
     scaffoldMessengerKey.currentState!.showSnackBar(
       SnackBar(
@@ -248,29 +278,40 @@ class _HomePageState extends State<HomePage> {
     showSnackBar(message: 'Tracking disabled');
   }
 
-  void identifyUser() {
-    FlutterBranchSdk.setIdentity('branch_user_test');
-    showSnackBar(message: 'User branch_user_test identfied');
+  void identifyUser() async {
+    final isUserIdentified = await FlutterBranchSdk.isUserIdentified();
+    if (isUserIdentified) {
+      showSnackBar(message: 'User logged in');
+      return;
+    }
+    final userId = const Uuid().v4();
+    FlutterBranchSdk.setIdentity(userId);
+    showSnackBar(message: 'User identified: $userId');
   }
 
-  void userLogout() {
+  void userLogout() async {
+    final isUserIdentified = await FlutterBranchSdk.isUserIdentified();
+    if (!isUserIdentified) {
+      showSnackBar(message: 'No users logged in');
+      return;
+    }
     FlutterBranchSdk.logout();
-    showSnackBar(message: 'User branch_user_test logout');
+    showSnackBar(message: 'User logout');
   }
 
   void registerView() {
-    FlutterBranchSdk.registerView(buo: buo!);
+    FlutterBranchSdk.registerView(buo: buo);
     showSnackBar(message: 'Event Registered');
   }
 
   void trackContent() {
-    FlutterBranchSdk.trackContent(buo: [buo!], branchEvent: eventStandard!);
+    FlutterBranchSdk.trackContent(buo: [buo], branchEvent: eventStandard);
 
-    FlutterBranchSdk.trackContent(buo: [buo!], branchEvent: eventCustom!);
+    FlutterBranchSdk.trackContent(buo: [buo], branchEvent: eventCustom);
 
-    FlutterBranchSdk.trackContentWithoutBuo(branchEvent: eventStandard!);
+    FlutterBranchSdk.trackContentWithoutBuo(branchEvent: eventStandard);
 
-    FlutterBranchSdk.trackContentWithoutBuo(branchEvent: eventCustom!);
+    FlutterBranchSdk.trackContentWithoutBuo(branchEvent: eventCustom);
 
     showSnackBar(message: 'Tracked content');
   }
@@ -309,11 +350,10 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     //Buo without Link Properties
-    bool success = await FlutterBranchSdk.listOnSearch(buo: buo!);
+    bool success = await FlutterBranchSdk.listOnSearch(buo: buo);
 
     //Buo with Link Properties
-    success =
-        await FlutterBranchSdk.listOnSearch(buo: buo!, linkProperties: lp);
+    success = await FlutterBranchSdk.listOnSearch(buo: buo, linkProperties: lp);
 
     if (success) {
       showSnackBar(message: 'Listed on Search');
@@ -325,19 +365,22 @@ class _HomePageState extends State<HomePage> {
       showSnackBar(message: 'removeFromSearch() not available in Flutter Web');
       return;
     }
-    bool success = await FlutterBranchSdk.removeFromSearch(buo: buo!);
+    bool success = await FlutterBranchSdk.removeFromSearch(buo: buo);
     success =
-        await FlutterBranchSdk.removeFromSearch(buo: buo!, linkProperties: lp);
+        await FlutterBranchSdk.removeFromSearch(buo: buo, linkProperties: lp);
     if (success) {
       showSnackBar(message: 'Removed from Search');
     }
   }
 
   void generateLink(BuildContext context) async {
+    initDeepLinkData();
     BranchResponse response =
-        await FlutterBranchSdk.getShortUrl(buo: buo!, linkProperties: lp);
+        await FlutterBranchSdk.getShortUrl(buo: buo, linkProperties: lp);
     if (response.success) {
-      showGeneratedLink(this.context, response.result);
+      if (context.mounted) {
+        showGeneratedLink(context, response.result);
+      }
     } else {
       showSnackBar(
           message: 'Error : ${response.errorCode} - ${response.errorMessage}');
@@ -363,11 +406,11 @@ class _HomePageState extends State<HomePage> {
       print(
           'Error : ${responseQrCodeData.errorCode} - ${responseQrCodeData.errorMessage}');
     }
-
      */
+    initDeepLinkData();
     BranchResponse responseQrCodeImage =
         await FlutterBranchSdk.getQRCodeAsImage(
-            buo: buo!,
+            buo: buo,
             linkProperties: lp,
             qrCode: BranchQrCode(
                 primaryColor: Colors.black,
@@ -376,7 +419,9 @@ class _HomePageState extends State<HomePage> {
                 backgroundColor: Colors.white,
                 imageFormat: BranchImageFormat.PNG));
     if (responseQrCodeImage.success) {
-      showQrCode(this.context, responseQrCodeImage.result);
+      if (context.mounted) {
+        showQrCode(context, responseQrCodeImage.result);
+      }
     } else {
       showSnackBar(
           message:
@@ -385,6 +430,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void showGeneratedLink(BuildContext context, String url) async {
+    initDeepLinkData();
     showModalBottomSheet(
         isDismissible: true,
         isScrollControlled: true,
@@ -404,7 +450,9 @@ class _HomePageState extends State<HomePage> {
                 const SizedBox(
                   height: 10,
                 ),
-                Text(url),
+                Text(url,
+                    maxLines: 1,
+                    style: const TextStyle(overflow: TextOverflow.ellipsis)),
                 const SizedBox(
                   height: 10,
                 ),
@@ -413,7 +461,9 @@ class _HomePageState extends State<HomePage> {
                   child: CustomButton(
                       onPressed: () async {
                         await Clipboard.setData(ClipboardData(text: url));
-                        Navigator.pop(this.context);
+                        if (context.mounted) {
+                          Navigator.pop(this.context);
+                        }
                       },
                       child: const Center(child: Text('Copy link'))),
                 ),
@@ -473,8 +523,9 @@ class _HomePageState extends State<HomePage> {
   }
 
   void shareLink() async {
+    initDeepLinkData();
     BranchResponse response = await FlutterBranchSdk.showShareSheet(
-        buo: buo!,
+        buo: buo,
         linkProperties: lp,
         messageText: 'My Share text',
         androidMessageTitle: 'My Message Title',
@@ -507,9 +558,9 @@ class _HomePageState extends State<HomePage> {
             .buffer
             .asUint8List();
     */
-
+    initDeepLinkData();
     FlutterBranchSdk.shareWithLPLinkMetadata(
-        buo: buo!,
+        buo: buo,
         linkProperties: lp,
         title: "Share With LPLinkMetadata",
         icon: iconData);

@@ -31,14 +31,42 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
     FlutterBranchSdkPlatform.instance = FlutterBranchSdkWeb();
   }
 
+  ///Initialize Branch SDK
+  /// [useTestKey] - Sets `true` to use the test `key_test_...
+  /// [enableLogging] - Sets `true` turn on debug logging
+  /// [disableTracking] - Sets `true` to disable tracking in Branch SDK for GDPR compliant on start. After having consent, sets `false`
+  @override
+  Future<void> init(
+      {bool useTestKey = false,
+      bool enableLogging = false,
+      bool disableTracking = false}) async {
+    debugPrint('');
+  }
+
   static final StreamController<Map<String, dynamic>> _initSessionStream =
       StreamController<Map<String, dynamic>>();
   static bool _userIdentified = false;
+  static bool isInitialized = false;
 
-  ///Initialises a session with the Branch API
   ///Listen click em Branch Deeplinks
+  @Deprecated('Use `listSession')
   @override
   Stream<Map<dynamic, dynamic>> initSession() {
+    getLatestReferringParams().then((data) {
+      if (data.isNotEmpty) {
+        _initSessionStream.sink
+            .add(data.map((key, value) => MapEntry('$key', value)));
+      } else {
+        _initSessionStream.sink.add({});
+      }
+    });
+
+    return _initSessionStream.stream;
+  }
+
+  ///Listen click em Branch Deeplinks
+  @override
+  Stream<Map<dynamic, dynamic>> listSession() {
     getLatestReferringParams().then((data) {
       if (data.isNotEmpty) {
         _initSessionStream.sink
@@ -204,15 +232,22 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   void trackContent(
       {required List<BranchUniversalObject> buo,
       required BranchEvent branchEvent}) {
-    js.JsArray<Object> contentItems = js.JsArray();
-
+    List<Object> contentItems = [];
     for (var element in buo) {
       contentItems.add(_dartObjectToJsObject(element.toMap()));
     }
 
     try {
-      BranchJS.logEvent(branchEvent.eventName,
-          _dartObjectToJsObject(branchEvent.toMap()), contentItems);
+      if (branchEvent.alias.isNotEmpty) {
+        BranchJS.logEvent(
+            branchEvent.eventName,
+            _dartObjectToJsObject(branchEvent.toMap()),
+            contentItems,
+            branchEvent.alias);
+      } else {
+        BranchJS.logEvent(branchEvent.eventName,
+            _dartObjectToJsObject(branchEvent.toMap()), contentItems);
+      }
     } catch (e) {
       debugPrint('trackContent() error: ${e.toString()}');
     }
@@ -262,14 +297,6 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
       {required BranchUniversalObject buo,
       BranchLinkProperties? linkProperties}) async {
     throw UnsupportedError('removeFromSearch() Not supported by Branch JS SDK');
-  }
-
-  ///Set time window for SKAdNetwork callouts in Hours (Only iOS)
-  ///By default, Branch limits calls to SKAdNetwork to within 72 hours after first install.
-  @override
-  void setIOSSKAdNetworkMaxTime(int hours) {
-    throw UnsupportedError(
-        'setIOSSKAdNetworkMaxTime() Not available in Branch JS SDK');
   }
 
   ///Indicates whether or not this user has a custom identity specified for them. Note that this is independent of installs.

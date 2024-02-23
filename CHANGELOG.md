@@ -1,3 +1,92 @@
+## 7.0.4
+### Issues
+
+* Fix issue #289 : reverts `js` dependency update. From version 0.7.0 to 0.6.7
+
+## 7.0.3
+### Issues
+
+* Fix issue #277 : PlatformException - NullPointerException
+
+### Features
+* PR #286 : fix: export platform_interface
+* Updated configuration steps in README.MD
+* Sample app - code review
+
+## 7.0.2
+### Issues
+
+* Fix issue #261 / #266 / #268: Calling startActivity() from outside of an Activity
+* Fix issue #264: Android (PlayStore) : Branch SDK Params empty on background state 
+* Fix issue #265: New release 7.0.0+ not getting a deeplink data on first launch, when app is on resume
+* Fix issue #270: Indicate when error is thrown in init
+
+### Native SDK Updates
+
+* Updated included Android SDK to 5.8.0 - [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
+
+## 7.0.1
+* Fix issue #255: `Attempt to invoke virtual method 'int android.content.Intent.getFlags()' on a null object reference` when using FlutterFragmentActivity
+* Fix issue #256: `A problem occurred configuring project ':flutter_branch_sdk'.` - Add compatibility with AGP 8 (Android Gradle Plugin)
+
+## 7.0.0
+⚠️ This is a major release which contains breaking API changes.
+### BREAKING CHANGE
+
+* Minimum required Dart SDK version to 2.18 (Flutter 3.3.0)
+* Xcode 15 is the min version
+* iOS 12 is the min version
+
+#### SDK Initialization Required
+* Use `FlutterBranchSdk.init()` method to initialize the SDK.
+
+Initialization must be called from `main` or at any time (for example after getting consent for GPDR).
+
+```dart
+  await FlutterBranchSdk.init(
+      useTestKey: false, enableLogging: false, disableTracking: false);
+```
+
+Check additional instructions in the README
+
+#### Deprecated / Removed
+
+* `FlutterBranchSdk.initSession()`. Use `FlutterBranchSdk.listSession()`.
+* Removed `setIOSSKAdNetworkMaxTime` method
+* Removed Facebook App Install Ads on iOS
+
+### Features
+
+* Issue #244 - Support for setting customer_event_alias for BranchEvent
+* Updated compile & target SDK to Android API 33.
+* Updated example app Android compileSdkVersion to 33.
+
+### Native SDK Updates
+
+* Updated included iOS SDK to 3.0.0 - [iOS Version History](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases)
+
+## 6.9.0
+### Enhancement
+* Issue #244 - Support for setting customer_event_alias for BranchEvent
+
+## 6.8.0
+* Updated Native `Android` SDKs:
+    * Android Native SDK Update 5.7.+ - [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
+    * iOS Native SDK Update 2.2.1 - [iOS Version History](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases)
+* Removed:
+    - Facebook App Install Ads on Android (parameter `branch_enable_facebook_ads`)
+
+## 6.7.1
+* Fix issue #237: `Pass long URL when try creating Short URL in Offline`
+
+## 6.7.0
+* Updated Native `Android` and `iOS` SDKs:
+    * Android Native SDK Update 5.6.+ - [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
+    * iOS Native SDK Update 2.2.0 - [iOS Version History](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases)
+* Removed:
+	- Firebase App Indexing in Android (`listOnSearch` and `removeFromSearch` return `success` but do not perform any action)
+	- Old Apple Search Ads APIs (parameter `branch_check_apple_ads`)
+
 ## 6.6.0
 * Updated Native `Android` and `iOS` SDKs:
     * Android Native SDK Update 5.4.+ - [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
@@ -98,9 +187,7 @@
  ------------
  
 * Updated Native `Android` and `iOS` SDKs:
-
 	* Android Native SDK Update 5.1.0 - [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
-	
 	* iOS Native SDK Update 1.41.0 - [iOS Version History](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases)
 
 ## 4.0.0
