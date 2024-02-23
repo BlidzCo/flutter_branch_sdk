@@ -43,7 +43,8 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry.NewIntentListener;
 
-public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler, StreamHandler, NewIntentListener, ActivityAware,
+public class FlutterBranchSdkPlugin
+        implements FlutterPlugin, MethodCallHandler, StreamHandler, NewIntentListener, ActivityAware,
         Application.ActivityLifecycleCallbacks {
     private static final String DEBUG_NAME = "FlutterBranchSDK";
     private static final String MESSAGE_CHANNEL = "flutter_branch_sdk/message";
@@ -94,7 +95,7 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
 
     private void setActivity(Activity activity) {
         LogUtils.debug(DEBUG_NAME, "triggered setActivity once");
-        if(this.activity == null) {
+        if (this.activity == null) {
             this.activity = activity;
             initialIntent = activity.getIntent();
             activity.getApplication().registerActivityLifecycleCallbacks(this);
@@ -186,15 +187,17 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
             return;
         }
         LogUtils.debug(DEBUG_NAME, "triggered SessionBuilder init");
-        Branch.sessionBuilder(activity).withCallback(branchReferralInitListener).withData(activity.getIntent().getData()).init();
+        Branch.sessionBuilder(activity).withCallback(branchReferralInitListener)
+                .withData(activity.getIntent().getData()).init();
     }
 
     @Override
     public void onActivityResumed(@NonNull Activity activity) {
-        if(this.activity == activity && is isInitialized) {
+        if (this.activity == activity && isInitialized) {
             Intent newIntent = activity.getIntent();
-            newIntent.putExtra("branch_force_new_session",true);
-            Branch.sessionBuilder(this.activity).withCallback(branchReferralInitListener).withData(newIntent.getData()).reInit();
+            newIntent.putExtra("branch_force_new_session", true);
+            Branch.sessionBuilder(this.activity).withCallback(branchReferralInitListener).withData(newIntent.getData())
+                    .reInit();
         }
     }
 
@@ -234,7 +237,7 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
             return false;
         }
         this.activity.setIntent(intent);
-        if (intent.hasExtra("branch_force_new_session") && intent.getBooleanExtra("branch_force_new_session",false)) {
+        if (intent.hasExtra("branch_force_new_session") && intent.getBooleanExtra("branch_force_new_session", false)) {
             Branch.sessionBuilder(this.activity).withCallback(branchReferralInitListener).reInit();
             LogUtils.debug(DEBUG_NAME, "triggered SessionBuilder reInit");
         }
@@ -346,34 +349,33 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
      * Branch SDK Call Methods
      * --------------------------------------------------------------------------------------------
      **/
-    private final Branch.BranchReferralInitListener branchReferralInitListener = new
-            Branch.BranchReferralInitListener() {
-                @Override
-                public void onInitFinished(JSONObject params, BranchError error) {
-                    LogUtils.debug(DEBUG_NAME, "triggered onInitFinished");
-                    if (error == null) {
-                        LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - params: " + params.toString());
-                        try {
-                            sessionParams = branchSdkHelper.paramsToMap(params);
-                        } catch (JSONException e) {
-                            LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error to Map: " + e.getLocalizedMessage());
-                            return;
-                        }
-                        if (eventSink != null) {
-                            eventSink.success(sessionParams);
-                            sessionParams = null;
-                        }
-                    } else {
-                        LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error: " + error);
-                        if (eventSink != null) {
-                            eventSink.error(String.valueOf(error.getErrorCode()), error.getMessage(), null);
-                            initialError = null;
-                        } else {
-                            initialError = error;
-                        }
-                    }
+    private final Branch.BranchReferralInitListener branchReferralInitListener = new Branch.BranchReferralInitListener() {
+        @Override
+        public void onInitFinished(JSONObject params, BranchError error) {
+            LogUtils.debug(DEBUG_NAME, "triggered onInitFinished");
+            if (error == null) {
+                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - params: " + params.toString());
+                try {
+                    sessionParams = branchSdkHelper.paramsToMap(params);
+                } catch (JSONException e) {
+                    LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error to Map: " + e.getLocalizedMessage());
+                    return;
                 }
-            };
+                if (eventSink != null) {
+                    eventSink.success(sessionParams);
+                    sessionParams = null;
+                }
+            } else {
+                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error: " + error);
+                if (eventSink != null) {
+                    eventSink.error(String.valueOf(error.getErrorCode()), error.getMessage(), null);
+                    initialError = null;
+                } else {
+                    initialError = error;
+                }
+            }
+        }
+    };
 
     private void setupBranch(MethodCall call, final Result result) {
         LogUtils.debug(DEBUG_NAME, "triggered setupBranch");
@@ -472,7 +474,8 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
         }
         HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
         BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
-        LinkProperties linkProperties = branchSdkHelper.convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
+        LinkProperties linkProperties = branchSdkHelper
+                .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
         final Map<String, Object> response = new HashMap<>();
         buo.generateShortUrl(activity, linkProperties, new Branch.BranchLinkCreateListener() {
             @Override
@@ -498,7 +501,8 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
         }
         HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
         BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
-        LinkProperties linkProperties = branchSdkHelper.convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
+        LinkProperties linkProperties = branchSdkHelper
+                .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
         String messageText = (String) argsMap.get("messageText");
         String messageTitle = (String) argsMap.get("messageTitle");
         String sharingTitle = (String) argsMap.get("sharingTitle");
@@ -538,7 +542,8 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
                     }
 
                     @Override
-                    public boolean onChannelSelected(String channelName, BranchUniversalObject buo, LinkProperties linkProperties) {
+                    public boolean onChannelSelected(String channelName, BranchUniversalObject buo,
+                            LinkProperties linkProperties) {
                         return false;
                     }
                 });
@@ -567,10 +572,11 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
         HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
         BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
         if (argsMap.containsKey("lp")) {
-            LinkProperties linkProperties = branchSdkHelper.convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
-            //buo.listOnGoogleSearch(context, linkProperties);
+            LinkProperties linkProperties = branchSdkHelper
+                    .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
+            // buo.listOnGoogleSearch(context, linkProperties);
         } else {
-            //buo.listOnGoogleSearch(context);
+            // buo.listOnGoogleSearch(context);
         }
         result.success(Boolean.TRUE);
     }
@@ -583,10 +589,11 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
         HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
         BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
         if (argsMap.containsKey("lp")) {
-            LinkProperties linkProperties = branchSdkHelper.convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
-            //buo.removeFromLocalIndexing(context, linkProperties);
+            LinkProperties linkProperties = branchSdkHelper
+                    .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
+            // buo.removeFromLocalIndexing(context, linkProperties);
         } else {
-            //buo.removeFromLocalIndexing(context);
+            // buo.removeFromLocalIndexing(context);
         }
         result.success(Boolean.TRUE);
     }
@@ -831,8 +838,10 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
         }
         HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
         final BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
-        final LinkProperties linkProperties = branchSdkHelper.convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
-        final BranchQRCode branchQRCode = branchSdkHelper.convertToQRCode((HashMap<String, Object>) argsMap.get("qrCodeSettings"));
+        final LinkProperties linkProperties = branchSdkHelper
+                .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
+        final BranchQRCode branchQRCode = branchSdkHelper
+                .convertToQRCode((HashMap<String, Object>) argsMap.get("qrCodeSettings"));
         final Map<String, Object> response = new HashMap<>();
         try {
             branchQRCode.getQRCodeAsData(context, buo, linkProperties, new BranchQRCode.BranchQRCodeDataHandler() {
@@ -970,5 +979,3 @@ public class FlutterBranchSdkPlugin implements FlutterPlugin, MethodCallHandler,
         });
     }
 }
-
-
