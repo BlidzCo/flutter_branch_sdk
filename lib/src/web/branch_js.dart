@@ -1,31 +1,27 @@
 @JS()
-library branchjs;
-
-import 'dart:typed_data';
-
-import 'package:js/js.dart';
+import 'dart:js_interop';
 
 @JS('JSON.stringify')
-external String jsonStringify(Object obj);
+external String jsonStringify(JSAny obj);
 
 @JS('JSON.parse')
-external dynamic jsonParse(String str);
+external JSAny jsonParse(String str);
 
 @JS('navigator.share')
-external dynamic navigatorShare(Object data);
+external JSPromise<JSAny?> navigatorShare(JSAny data);
 
 @JS('prompt')
-external dynamic browserPrompt(String message, [String data]);
+external JSAny browserPrompt(String message, [String data]);
 
 @JS()
 @anonymous
-class QrCodeData {
-  external ByteBuffer rawBuffer;
-  external Function base64();
+extension type QrCodeData._(JSObject _) implements JSObject {
+  external JSArrayBuffer rawBuffer;
+  external JSFunction base64();
 }
 
 @JS('branch')
-class BranchJS {
+extension type BranchJS._(JSObject _) implements JSObject {
   /// addListener(event, listener)
   /// Parameters
   ///
@@ -60,7 +56,7 @@ class BranchJS {
   /// didCloseJourney: Journey's close animation has completed and it is no longer visible to the user.
   /// didCallJourneyClose: Emitted when developer calls branch.closeJourney() to dismiss Journey.
   @JS('addListener')
-  external static void addListener([String event, Function listener]);
+  external static void addListener([String event, JSFunction listener]);
 
   // No documentation in full reference
   // @JS('banner')
@@ -83,7 +79,7 @@ class BranchJS {
   ///
   /// branch.closeJourney(function(err) { console.log(err); });
   @JS('closeJourney')
-  external static void closeJourney([Function callback]);
+  external static void closeJourney([JSFunction callback]);
 
   /// data(callback)
   /// Parameters
@@ -98,7 +94,7 @@ class BranchJS {
   /// If the Branch session has already been initialized, the callback will return
   /// immediately, otherwise, it will return once Branch has been initialized.
   @JS('data')
-  external static void data([Function callback]);
+  external static void data([JSFunction callback]);
 
   /// deepview(data, options, callback)
   /// Parameters
@@ -157,8 +153,7 @@ class BranchJS {
   ///     "Error message"
   /// );
   @JS('deepview')
-  external static void deepview(Object data,
-      [Object options, Function callback]);
+  external static void deepview(JSAny data, [JSAny options, JSFunction callback]);
 
   /// deepviewCta()
   /// Perform the branch deepview CTA (call to action) on mobile after branch.deepview() call is
@@ -213,7 +208,7 @@ class BranchJS {
   /// Warning: For a referral program, you should not use unique awards for custom events and redeem
   /// pre-identify call. This can allow users to cheat the system.
   @JS('deepviewCta')
-  external static void deepviewCta([Function errorCallback]);
+  external static void deepviewCta([JSFunction errorCallback]);
 
   /// first(callback)
   /// Parameters
@@ -228,7 +223,7 @@ class BranchJS {
   /// If the Branch session has already been initialized, the callback will return
   /// immediately, otherwise, it will return once Branch has been initialized.
   @JS('first')
-  external static void first([Function callback]);
+  external static void first([JSFunction callback]);
 
   // No documentation on reference
   // @JS('getCode')
@@ -294,8 +289,7 @@ class BranchJS {
   /// );
   /// Note: Branch.init must be called prior to calling any other Branch functions.
   @JS('init')
-  external static void init(String branchKey,
-      [Object? options, Function? callback]);
+  external static void init(String branchKey, [JSAny? options, JSFunction? callback]);
 
   /// link(data, callback)
   /// Parameters
@@ -377,7 +371,7 @@ class BranchJS {
   ///     'https://bnc.lt/l/3HZMytU-BW' // Branch deep linking URL
   /// );
   @JS('link')
-  external static void link(Object data, Function callback);
+  external static void link(JSAny data, JSFunction callback);
 
   /// logout(callback)
   /// Parameters
@@ -397,7 +391,7 @@ class BranchJS {
   ///      "Error message"
   /// );
   @JS('logout')
-  external static void logout([Function callback]);
+  external static void logout([JSFunction callback]);
 
   /// removeListener(listener)
   /// Parameters
@@ -410,7 +404,7 @@ class BranchJS {
   /// passed a referrence to the same function that was passed to branch.addListener(), not
   /// just an identical clone of the function.
   @JS('removeListener')
-  external static void removeListener(Function listener);
+  external static void removeListener(JSFunction listener);
 
   /// sendSMS(phone, linkData, options, callback)
   /// Parameters
@@ -486,8 +480,7 @@ class BranchJS {
   ///
   /// callback("Error message");
   @JS('sendSMS')
-  external static void sendSMS(String phone, Object linkData,
-      [Object options, Function callback]);
+  external static void sendSMS(String phone, JSAny linkData, [JSAny options, JSFunction callback]);
 
   /// setBranchViewData(data)
   /// Parameters
@@ -515,7 +508,7 @@ class BranchJS {
   ///   }
   /// });
   @JS('setBranchViewData')
-  external static void setBranchViewData(Object data);
+  external static void setBranchViewData(JSAny data);
 
   /// setIdentity(identity, callback)
   /// Parameters
@@ -550,7 +543,7 @@ class BranchJS {
   ///      }
   /// );
   @JS('setIdentity')
-  external static void setIdentity(String identity, [Function callback]);
+  external static void setIdentity(String identity, [JSFunction callback]);
 
   /// track(event, metadata, callback)
   /// Parameters
@@ -576,8 +569,7 @@ class BranchJS {
   ///
   /// callback("Error message");
   @JS('track')
-  external static void track(String event,
-      [Object metadata, Function callback]);
+  external static void track(String event, [JSAny metadata, JSFunction callback]);
 
   /// trackCommerceEvent(event, commerce_data, metadata, callback)
   /// Parameters
@@ -629,8 +621,7 @@ class BranchJS {
   ///     }
   /// });
   @JS('trackCommerceEvent')
-  external static void trackCommerceEvent(String name, Object commerceData,
-      [Object metadata, Function callback]);
+  external static void trackCommerceEvent(String name, JSAny commerceData, [JSAny metadata, JSFunction callback]);
 
   /// logEvent(event, event_data_and_custom_data, content_items, customer_event_alias, callback)
   /// Parameters
@@ -754,10 +745,7 @@ class BranchJS {
 
   @JS('logEvent')
   external static void logEvent(String event,
-      [Object eventDataAndCustomData,
-      Object contentItems,
-      String customerEventAlias,
-      Function callback]);
+      [JSAny eventDataAndCustomData, JSArray contentItems, String customerEventAlias, JSFunction callback]);
 
   /// disableTracking(disableTracking)
   /// Parameters
@@ -779,7 +767,7 @@ class BranchJS {
   /// information associated to them. You can change this behavior at any time, by calling the aforementioned function.
   /// The do-not-track mode state is persistent: it is saved for the user across browser sessions for the web site.
   @JS('disableTracking')
-  external static void disableTracking([bool disableTracking]);
+  external static void disableTracking(bool disableTracking);
 
   /// lastAttributedTouchData (number, callback)
   ///
@@ -809,8 +797,7 @@ class BranchJS {
   ///     '{}'
   /// );
   @JS('lastAttributedTouchData')
-  external static void lastAttributedTouchData(attributionWindow,
-      [Function callback]);
+  external static void lastAttributedTouchData(JSAny? attributionWindow, [JSFunction callback]);
 
   /// qrcode(data, callback)
   /// Parameters
@@ -894,6 +881,15 @@ class BranchJS {
   /// );
 
   @JS('qrCode')
-  external static void qrCode(Object qrCodeLinkData, Object qrCodeSettings,
-      Function(String? err, QrCodeData? qrCode) callback);
+  external static void qrCode(JSAny qrCodeLinkData, JSAny qrCodeSettings, JSFunction callback);
+
+  /// Sets the value of parameters required by Google Conversion APIs for DMA Compliance in EEA region.
+  /// [eeaRegion] `true` If European regulations, including the DMA, apply to this user and conversion.
+  /// [adPersonalizationConsent] `true` If End user has granted/denied ads personalization consent.
+  /// [adUserDataUsageConsent] `true If User has granted/denied consent for 3P transmission of user level data for ads.
+  @JS('setDMAParamsForEEA')
+  external static void setDMAParamsForEEA(bool eeaRegion, bool adPersonalizationConsent, bool adUserDataUsageConsent);
+
+  @JS('setRequestMetadata')
+  external static void setRequestMetadata(String key, String value);
 }

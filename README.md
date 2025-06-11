@@ -10,8 +10,8 @@ Branch.io helps mobile apps grow with deep links that power referral systems, sh
 
 Supports Android, iOS and Web.
 
-* Android - Branch SDK Version >= 5.8.+ [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
-* iOS - Branch SDK Version >= 3.0.+ [iOS Version History](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases)
+* Android - Branch SDK Version >= 5.18.0 [Android Version History](https://github.com/BranchMetrics/android-branch-deep-linking-attribution/releases)
+* iOS - Branch SDK Version >= 3.12.0 [iOS Version History](https://github.com/BranchMetrics/ios-branch-deep-linking-attribution/releases)
 
 Implemented functions in plugin:
 
@@ -43,38 +43,72 @@ For details see:
 * [Android - only section: **Configure Branch Dashboard**](https://help.branch.io/developers-hub/docs/android-basic-integration#1-configure-branch-dashboard)
 
 ## Configure Platform Project
-### Android Integration
+### Disable default Flutter Deep Linking (Android / iOS)
 
-Follow the steps:
+**Flutter version 3.27** has a [_breaking change_](https://docs.google.com/document/d/1TUhaEhNdi2BUgKWQFEbOzJgmUAlLJwIAhnFfZraKgQs/edit?tab=t.0) that alters the behavior of the Deep link default flag.
+
+You must manually set the value to **FALSE** in the project, according to the instructions below.
+
+#### iOS
+1. Navigate to **ios/Runner/Info.plist** file.
+2. Add the following in `<dict>` chapter:
+
+```xml
+<key>FlutterDeepLinkingEnabled</key>
+<false/>
+```
+
+#### Android
+1. Navigate to **android/app/src/main/AndroidManifest.xml** file.
+2. Add the following metadata tag and intent filter inside the tag with `.MainActivity`
+
+```xml
+<meta-data android:name="flutter_deeplinking_enabled" android:value="false" />
+```
+
+### Android Integration
+Follow only the steps:
 
 * [Configure App](https://help.branch.io/developers-hub/docs/android-basic-integration#4-configure-app)
 * [Configure ProGuard](https://help.branch.io/developers-hub/docs/android-basic-integration#7-configure-proguard)
 
--
+**Note**: It is not necessary to perform the Branch Android SDK installation steps. The plugin performs these steps.
 
 ### iOS Integration
-Follow the steps:
+Follow only the steps:
 
 * [Configure bundle identifier](https://help.branch.io/developers-hub/docs/ios-basic-integration#2-configure-bundle-identifier)
 * [Configure associated domains](https://help.branch.io/developers-hub/docs/ios-basic-integration#3-configure-associated-domains)
 * [Configure Info.plist](https://help.branch.io/developers-hub/docs/ios-basic-integration#4-configure-infoplist)
+
+**Note**: It is not necessary to perform the Branch iOS SDK installation steps. The plugin performs these steps.
 
 #### NativeLink™ Deferred Deep Linking
 Use iOS pasteboard to enable deferred deep linking via Branch NativeLink™, which enables 100% matching on iOS through Installs.
 
 Follow the steps on the [page](https://help.branch.io/developers-hub/docs/ios-advanced-features#nativelink-deferred-deep-linking), session _**NativeLink™ Deferred Deep Linking**_,
 
-Note: Code implementation in Swift is not necessary. The plugin already implements the code, requiring only configuration on the Dashboard.
+**Note**: Code implementation in Swift is not necessary. The plugin already implements the code, requiring only configuration on the Dashboard.
 
--
+#### Disable NativeLink™ Deferred Deep Linking
+If you want to disable NativeLink™ Deferred Deep Linking, follow the instructions below:
+
+1. Navigate to **ios/Runner/Info.plist** file. 
+2. Add the following in `<dict>` chapter:
+
+```xml
+	<key>branch_disable_nativelink</key>
+	<true/>
+```
 
 ### Web Integration
-
 You need add Branch Javascript in your `web\index.html` at the top of your `<body>` tag, to be able to use this package.
 
 ```javascript
   <script>
-    (function(b,r,a,n,c,h,_,s,d,k){if(!b[n]||!b[n]._q){for(;s<_.length;)c(h,_[s++]);d=r.createElement(a);d.async=1;d.src="https://cdn.branch.io/branch-latest.min.js";k=r.getElementsByTagName(a)[0];k.parentNode.insertBefore(d,k);b[n]=h}})(window,document,"script","branch",function(b,r){b[r]=function(){b._q.push([r,arguments])}},{_q:[],_v:1},"addListener applyCode autoAppIndex banner closeBanner closeJourney creditHistory credits data deepview deepviewCta first getCode init link logout redeem referrals removeListener sendSMS setBranchViewData setIdentity track validateCode trackCommerceEvent logEvent disableTracking".split(" "), 0);
+    // load Branch
+    (function(b,r,a,n,c,h,_,s,d,k){if(!b[n]||!b[n]._q){for(;s<_.length;)c(h,_[s++]);d=r.createElement(a);d.async=1;d.src="https://cdn.branch.io/branch-latest.min.js";k=r.getElementsByTagName(a)[0];k.parentNode.insertBefore(d,k);b[n]=h}})(window,document,"script","branch",function(b,r){b[r]=function(){b._q.push([r,arguments])}},{_q:[],_v:1},"addListener banner closeBanner closeJourney data deepview deepviewCta first init link logout removeListener setBranchViewData setIdentity track trackCommerceEvent logEvent disableTracking getBrowserFingerprintId crossPlatformIds lastAttributedTouchData setAPIResponseCallback qrCode setRequestMetaData setAPIUrl getAPIUrl setDMAParamsForEEA".split(" "), 0);
+    // init Branch
     branch.init('key_live_or_test_YOUR_KEY_GOES_HERE');
   </script>
 ```
@@ -118,7 +152,9 @@ Full example `index.html`:
 </head>
 <body>
   <script>
-    (function(b,r,a,n,c,h,_,s,d,k){if(!b[n]||!b[n]._q){for(;s<_.length;)c(h,_[s++]);d=r.createElement(a);d.async=1;d.src="https://cdn.branch.io/branch-latest.min.js";k=r.getElementsByTagName(a)[0];k.parentNode.insertBefore(d,k);b[n]=h}})(window,document,"script","branch",function(b,r){b[r]=function(){b._q.push([r,arguments])}},{_q:[],_v:1},"addListener applyCode autoAppIndex banner closeBanner closeJourney creditHistory credits data deepview deepviewCta first getCode init link logout redeem referrals removeListener sendSMS setBranchViewData setIdentity track validateCode trackCommerceEvent logEvent disableTracking".split(" "), 0);
+    // load Branch
+    (function(b,r,a,n,c,h,_,s,d,k){if(!b[n]||!b[n]._q){for(;s<_.length;)c(h,_[s++]);d=r.createElement(a);d.async=1;d.src="https://cdn.branch.io/branch-latest.min.js";k=r.getElementsByTagName(a)[0];k.parentNode.insertBefore(d,k);b[n]=h}})(window,document,"script","branch",function(b,r){b[r]=function(){b._q.push([r,arguments])}},{_q:[],_v:1},"addListener banner closeBanner closeJourney data deepview deepviewCta first init link logout removeListener setBranchViewData setIdentity track trackCommerceEvent logEvent disableTracking getBrowserFingerprintId crossPlatformIds lastAttributedTouchData setAPIResponseCallback qrCode setRequestMetaData setAPIUrl getAPIUrl setDMAParamsForEEA".split(" "), 0);
+    // init Branch
     branch.init('key_live_or_test_YOUR_KEY_GOES_HERE');
   </script>
   <!-- This script installs service_worker.js to provide PWA functionality to
@@ -149,15 +185,22 @@ To initialize Branch:
 ```dart
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 
-await FlutterBranchSdk.init(
-      useTestKey: false, enableLogging: false, disableTracking: false);
+await FlutterBranchSdk.init(enableLogging: false, disableTracking: false);
 ```
 
 The optional parameters are:
 
-- *useTestKey* : Sets `true` to use the test `key_test_....` .Default value: false
 - *enableLogging* : Sets `true` turn on debug logging. Default value: false
-- *disableTracking*: Sets `true` to disable tracking in Branch SDK for GDPR compliant on start. Default value: false
+- *disableTracking*: Sets `true` to disable tracking in Branch SDK for GDPR compliant on start. Default value: false 
+- *branchAttributionLevel* : The level of attribution data to collect.
+	- `BranchAttributionLevel.FULL`: Full Attribution (Default)
+  	- `BranchAttributionLevel.REDUCE`: Reduced Attribution (Non-Ads + Privacy Frameworks)
+  	- `BranchAttributionLevel.MINIMAL`: Minimal Attribution - Analytics Only
+  	- `BranchAttributionLevel.NONE`: No Attribution - No Analytics (GDPR, CCPA)
+
+		Read Branch documentation for details: [Introducing Consumer Protection Preference Levels](https://help.branch.io/using-branch/changelog/introducing-consumer-protection-preference-levels) and [Consumer Protection Preferences](https://help.branch.io/developers-hub/docs/consumer-protection-preferences)
+
+*Note: The `disableTracking` parameter is deprecated and should no longer be used. Please use `branchAttributionLevel` to control tracking behavior.*
 
 Initialization must be called from `main` or at any time, for example after getting consent for GPDR.
 
@@ -529,7 +572,7 @@ FlutterBranchSdk.logout();
  bool isUserIdentified = await FlutterBranchSdk.isUserIdentified();
 ```
 
-### Enable or Disable User Tracking
+### Enable or Disable User Tracking (Deprecated. Read Consumer Preference Levels)
 If you need to comply with a user's request to not be tracked for GDPR purposes, or otherwise determine that a user should not be tracked, utilize this field to prevent Branch from sending network requests. This setting can also be enabled across all users for a particular link, or across your Branch links.
 
 ```dart
@@ -541,6 +584,35 @@ FlutterBranchSdk.disableTracking(true);
 You can choose to call this throughout the lifecycle of the app. Once called, network requests will not be sent from the SDKs. Link generation will continue to work, but will not contain identifying information about the user. In addition, deep linking will continue to work, but will not track analytics for the user.
 
 More information [here](https://help.branch.io/developers-hub/docs/honoring-opt-out-of-processing-requests)
+
+### Consumer Preference Levels
+Sets the consumer protection attribution level:
+
+* `BranchAttributionLevel.FULL`: Full Attribution (Default)
+
+```dart
+  FlutterBranchSdk.setConsumerProtectionAttributionLevel(BranchAttributionLevel.FULL);
+```
+* `BranchAttributionLevel.REDUCE`: Reduced Attribution (Non-Ads + Privacy Frameworks)
+
+```dart
+  FlutterBranchSdk.setConsumerProtectionAttributionLevel(BranchAttributionLevel.REDUCED);
+```
+* `BranchAttributionLevel.MINIMAL`: Minimal Attribution - Analytics 
+
+```dart
+  FlutterBranchSdk.setConsumerProtectionAttributionLevel(BranchAttributionLevel.MINIMAL);
+```
+* `BranchAttributionLevel.NONE`: No Attribution - No Analytics (GDPR, CCPA)
+
+```dart
+  FlutterBranchSdk.setConsumerProtectionAttributionLevel(BranchAttributionLevel.NONE);
+```
+Read Branch documentation for details: 
+
+- [Introducing Consumer Protection Preference Levels](https://help.branch.io/using-branch/changelog/introducing-consumer-protection-preference-levels) 
+- [Consumer Protection Preferences](https://help.branch.io/developers-hub/docs/consumer-protection-preferences)
+
 
 ### Set Request Meta data
 Add key value pairs to all requests
@@ -612,6 +684,63 @@ print(status);
 
 See: [https://developer.apple.com/documentation/adsupport/asidentifiermanager/1614151-advertisingidentifier](https://developer.apple.com/documentation/adsupport/asidentifiermanager/1614151-advertisingidentifier)
 
+
+### User Data
+#### Google DMA Compliance
+
+In response to the European Union's enactment of the Digital Markets Act (DMA), the Branch Android SDK includes the `setDMAParamsForEEA` method to help you pass consent information from your user to Google.
+
+The `setDMAParamsForEEA` method takes 3 parameters:
+
+```dart
+    FlutterBranchSdk.setDMAParamsForEEA(eeaRegion: true, adPersonalizationConsent: false, adUserDataUsageConsent: false);
+```
+
+Parameter Name | Type | Description | When `true`| When `false` 
+|---|---|---|---|---|
+eeaRegion | Boolean | Whether European regulations, including the DMA, apply to this user and conversion | User is `included` in European Union regulations. For example, if the user is located within the EEA, they are within the scope of DMA | User is considered `excluded` from European Union regulations
+adPersonalizationConsent | Boolean | Whether end user has `granted` or denied ads personalization | User has `granted`  consent for ads personalization. | User has denied consent for ads personalization.
+adUserDataUsageConsent | Boolean | Whether end user has granted or denied consent for 3P transmission of user level data for ads. | User has `granted` consent for 3P transmission of user-level data for ads. | User has `denied`  consent for 3P transmission of user-level data for ads.
+
+When parameters are successfully set using `setDMAParamsForEEA`, they will be sent along with every future request to the following Branch endpoint.
+
+
+# Configuring the project to use Branch Test Key
+## Android
+
+Add or update the code below in `AndroidManifest.xml`:
+
+```xml
+<!-- Set to `true` to use `BranchKey.test` -->
+<meta-data 
+   android:name="io.branch.sdk.TestMode" android:value="true" />
+```
+
+***Note***: Remember to set the value to `false` before releasing to production.
+
+### iOS
+
+1) Create an empty file called `branch.json`.
+
+2) Paste the content below into the file or make download [here](https://github.com/RodrigoSMarques/flutter_branch_sdk/blob/master/assets/branch.json):
+
+```json
+{
+  "useTestInstance": true
+}
+
+```
+
+3) Add the file `branch.json` to your project using Xcode. Within your project, navigate to File → Add Files. 
+
+4) Select the `branch.json` file and make sure every target in your project that uses Branch is selected.
+
+![branch.json](https://github.com/RodrigoSMarques/flutter_branch_sdk/blob/master/assets/branch_json_add.png)
+
+![branch.json](https://github.com/RodrigoSMarques/flutter_branch_sdk/blob/master/assets/branch_json_project.png)
+
+**Note*:* Remember to set the value to `false` before releasing to production.
+
 # Getting Started
 See the `example` directory for a complete sample app using Branch SDK.
 
@@ -636,11 +765,28 @@ Practices to avoid:
 3. Don't wait to initialize the object until you conveniently need a link.
 4. Don't create many objects at once and register views in a for loop.
 
-# Deep links with Short Links
-More information [here](https://help.branch.io/using-branch/docs/creating-a-deep-link#short-links)
+# Create Deep Links
+* Deep links with [Short Links](https://help.branch.io/using-branch/docs/creating-a-deep-link#short-links)
+* Deep links with [Long links](https://help.branch.io/using-branch/docs/creating-a-deep-link#long-links)
 
-# Deep links with Long links
-More information [here](https://help.branch.io/using-branch/docs/creating-a-deep-link#long-links)
+# Data Privacy
+* [Introducing Consumer Protection Preference Levels] (https://help.branch.io/using-branch/changelog/introducing-consumer-protection-preference-levels) 
+* [Consumer Protection Preferences](https://help.branch.io/developers-hub/docs/consumer-protection-preferences)
+* [Answering the App Store Connect Privacy Questions](https://help.branch.io/using-branch/docs/answering-the-app-store-connect-privacy-questions)
+* [Answering the Google Play Store Privacy Questions](https://help.branch.io/using-branch/docs/answering-the-google-play-store-privacy-questions)
+
+
+# SDK FAQs
+* [Android SDK FAQs](https://help.branch.io/faq/docs/android-sdk)
+* [iOS SDK FAQs](https://help.branch.io/faq/docs/ios-sdk)
+
+# Testing
+* [Android Testing](https://help.branch.io/developers-hub/docs/android-testing)
+* [iOS Testing](https://help.branch.io/developers-hub/docs/ios-testing)
+
+# Troubleshooting
+* [Android Troubleshooting](https://help.branch.io/developers-hub/docs/android-troubleshooting)
+* [iOS Troubleshooting](https://help.branch.io/developers-hub/docs/ios-troubleshooting)
 
 # Branch Documentation
 Read the iOS or Android documentation for all Branch object parameters:

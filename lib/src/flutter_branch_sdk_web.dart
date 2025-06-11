@@ -4,8 +4,8 @@
 // ignore: avoid_web_libraries_in_flutter
 import 'dart:async';
 import 'dart:convert';
-import 'dart:js' as js;
-import 'dart:js_util';
+import 'dart:js_interop';
+import 'dart:js_interop_unsafe' as js;
 import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
@@ -13,14 +13,14 @@ import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 
 import 'flutter_branch_sdk_platform_interface.dart';
 import 'objects/app_tracking_transparency.dart';
+import 'objects/branch_attribution_level.dart';
 import 'objects/branch_universal_object.dart';
 import 'web/branch_js.dart';
 
 /// A workaround to deep-converting an object from JS to a Dart Object.
 dynamic _jsObjectToDartObject(data) => json.decode(jsonStringify(data));
 
-dynamic _dartObjectToJsObject(data) => jsonParse(json.encode(data));
-Map<String, String> _metaData = {};
+JSAny _dartObjectToJsObject(data) => jsonParse(json.encode(data));
 
 /// A web implementation of the FlutterBranchSdkPlatform of the FlutterBranchSdk plugin.
 class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
@@ -31,46 +31,41 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
     FlutterBranchSdkPlatform.instance = FlutterBranchSdkWeb();
   }
 
-  ///Initialize Branch SDK
-  /// [useTestKey] - Sets `true` to use the test `key_test_...
-  /// [enableLogging] - Sets `true` turn on debug logging
-  /// [disableTracking] - Sets `true` to disable tracking in Branch SDK for GDPR compliant on start. After having consent, sets `false`
+  /// Initializes the Branch SDK.
+  ///
+  /// This function initializes the Branch SDK with the specified configuration options.
+  ///
+  /// **Parameters:**
+  ///
+  /// - [enableLogging]: Whether to enable detailed logging. Defaults to `false`.
+  /// - [branchAttributionLevel]: The level of attribution data to collect.
+  ///   - `BranchAttributionLevel.FULL`: Full Attribution (Default)
+  ///   - `BranchAttributionLevel.REDUCE`: Reduced Attribution (Non-Ads + Privacy Frameworks)
+  ///   - `BranchAttributionLevel.MINIMAL`: Minimal Attribution - Analytics Only
+  ///   - `BranchAttributionLevel.NONE`: No Attribution - No Analytics (GDPR, CCPA)
+  ///
+  /// **Note:** The `disableTracking` parameter is deprecated and should no longer be used.
+  /// Please use `branchAttributionLevel` to control tracking behavior.
+  ///
+
   @override
   Future<void> init(
-      {bool useTestKey = false,
-      bool enableLogging = false,
-      bool disableTracking = false}) async {
-    debugPrint('');
+      {bool enableLogging = false,
+      @Deprecated('use branchAttributionLevel') bool disableTracking = false,
+      BranchAttributionLevel? branchAttributionLevel}) async {
+    debugPrint('For web, start the SDK in index.html');
   }
 
-  static final StreamController<Map<String, dynamic>> _initSessionStream =
-      StreamController<Map<String, dynamic>>();
+  static final StreamController<Map<String, dynamic>> _initSessionStream = StreamController<Map<String, dynamic>>();
   static bool _userIdentified = false;
   static bool isInitialized = false;
-
-  ///Listen click em Branch Deeplinks
-  @Deprecated('Use `listSession')
-  @override
-  Stream<Map<dynamic, dynamic>> initSession() {
-    getLatestReferringParams().then((data) {
-      if (data.isNotEmpty) {
-        _initSessionStream.sink
-            .add(data.map((key, value) => MapEntry('$key', value)));
-      } else {
-        _initSessionStream.sink.add({});
-      }
-    });
-
-    return _initSessionStream.stream;
-  }
 
   ///Listen click em Branch Deeplinks
   @override
   Stream<Map<dynamic, dynamic>> listSession() {
     getLatestReferringParams().then((data) {
       if (data.isNotEmpty) {
-        _initSessionStream.sink
-            .add(data.map((key, value) => MapEntry('$key', value)));
+        _initSessionStream.sink.add(data.map((key, value) => MapEntry('$key', value)));
       } else {
         _initSessionStream.sink.add({});
       }
@@ -85,11 +80,10 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
     final Completer<Map<dynamic, dynamic>> response = Completer();
 
     try {
-      BranchJS.data(js.allowInterop((err, data) {
+      BranchJS.data((JSAny? err, JSAny? data) {
         if (err == null) {
           if (data != null) {
-            var responseData =
-                Map<dynamic, dynamic>.from(_jsObjectToDartObject(data));
+            var responseData = Map<dynamic, dynamic>.from(_jsObjectToDartObject(data));
             response.complete(responseData['data_parsed'] ?? {});
           } else {
             response.complete({});
@@ -97,7 +91,7 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
         } else {
           response.completeError(err);
         }
-      }));
+      }.toJS);
     } catch (e) {
       debugPrint('getLatestReferringParams() error: ${e.toString()}');
       response.completeError(e);
@@ -108,15 +102,13 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   ///Returns the first parameters associated with the link that referred the user
   @override
   Future<Map<dynamic, dynamic>> getFirstReferringParams() {
-    final Completer<Map<dynamic, dynamic>> response =
-        Completer<Map<dynamic, dynamic>>();
+    final Completer<Map<dynamic, dynamic>> response = Completer<Map<dynamic, dynamic>>();
 
     try {
-      BranchJS.first(js.allowInterop((err, data) {
+      BranchJS.first((JSAny? err, JSAny? data) {
         if (err == null) {
           if (data != null) {
-            var responseData =
-                Map<dynamic, dynamic>.from(_jsObjectToDartObject(data));
+            var responseData = Map<dynamic, dynamic>.from(_jsObjectToDartObject(data));
             response.complete(responseData['data_parsed'] ?? {});
           } else {
             response.complete({});
@@ -124,7 +116,7 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
         } else {
           response.completeError(err);
         }
-      }));
+      }.toJS);
     } catch (e) {
       debugPrint('getFirstReferringParams() error: ${e.toString()}');
       response.completeError(e);
@@ -136,11 +128,13 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   @override
   void setIdentity(String userId) {
     try {
-      BranchJS.setIdentity(userId, js.allowInterop((error, data) {
-        if (error == null) {
-          _userIdentified = true;
-        }
-      }));
+      BranchJS.setIdentity(
+          userId,
+          (JSAny? error, JSAny? data) {
+            if (error == null) {
+              _userIdentified = true;
+            }
+          }.toJS);
     } catch (e) {
       debugPrint('setIdentity() error: ${e.toString()}');
     }
@@ -150,11 +144,11 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   @override
   void logout() {
     try {
-      BranchJS.logout(js.allowInterop((error) {
+      BranchJS.logout((JSAny? error) {
         if (error == null) {
           _userIdentified = false;
         }
-      }));
+      }.toJS);
     } catch (e) {
       debugPrint('logout() error: ${e.toString()}');
     }
@@ -174,31 +168,28 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   ///Creates a short url for the BUO
   @override
   Future<BranchResponse> getShortUrl(
-      {required BranchUniversalObject buo,
-      required BranchLinkProperties linkProperties}) async {
+      {required BranchUniversalObject buo, required BranchLinkProperties linkProperties}) async {
     Map<String, dynamic> data = buo.toMap();
     linkProperties.getControlParams().forEach((key, value) {
       data[key] = value;
     });
 
     Map<String, dynamic> linkData = {...linkProperties.toMap(), 'data': data};
-
     Completer<BranchResponse> responseCompleter = Completer();
 
     try {
-      BranchJS.link(_dartObjectToJsObject(linkData),
-          js.allowInterop((err, url) {
-        if (err == null) {
-          responseCompleter.complete(BranchResponse.success(result: url));
-        } else {
-          responseCompleter.completeError(
-              BranchResponse.error(errorCode: '-1', errorMessage: err));
-        }
-      }));
+      BranchJS.link(
+          _dartObjectToJsObject(linkData),
+          (String? err, String url) {
+            if (err == null) {
+              responseCompleter.complete(BranchResponse.success(result: url));
+            } else {
+              responseCompleter.completeError(BranchResponse.error(errorCode: '-1', errorMessage: err));
+            }
+          }.toJS);
     } catch (e) {
       debugPrint('getShortUrl() error: ${e.toString()}');
-      responseCompleter.completeError(BranchResponse.error(
-          errorCode: '-1', errorMessage: 'getShortUrl() error'));
+      responseCompleter.completeError(BranchResponse.error(errorCode: '-1', errorMessage: 'getShortUrl() error'));
     }
     return responseCompleter.future;
   }
@@ -211,15 +202,11 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
       required String messageText,
       String androidMessageTitle = '',
       String androidSharingTitle = ''}) async {
-    BranchResponse response =
-        await getShortUrl(buo: buo, linkProperties: linkProperties);
+    BranchResponse response = await getShortUrl(buo: buo, linkProperties: linkProperties);
     if (response.success) {
       try {
-        await promiseToFuture(navigatorShare(_dartObjectToJsObject({
-          "title": messageText,
-          "text": buo.title,
-          "url": response.result
-        })));
+        await navigatorShare(_dartObjectToJsObject({"title": messageText, "text": buo.title, "url": response.result}))
+            .toDart;
       } catch (e) {
         browserPrompt(messageText, response.result);
       }
@@ -229,10 +216,8 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
 
   ///Logs this BranchEvent to Branch for tracking and analytics
   @override
-  void trackContent(
-      {required List<BranchUniversalObject> buo,
-      required BranchEvent branchEvent}) {
-    List<Object> contentItems = [];
+  void trackContent({required List<BranchUniversalObject> buo, required BranchEvent branchEvent}) {
+    List<JSAny> contentItems = [];
     for (var element in buo) {
       contentItems.add(_dartObjectToJsObject(element.toMap()));
     }
@@ -240,13 +225,9 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
     try {
       if (branchEvent.alias.isNotEmpty) {
         BranchJS.logEvent(
-            branchEvent.eventName,
-            _dartObjectToJsObject(branchEvent.toMap()),
-            contentItems,
-            branchEvent.alias);
+            branchEvent.eventName, _dartObjectToJsObject(branchEvent.toMap()), contentItems.toJS, branchEvent.alias);
       } else {
-        BranchJS.logEvent(branchEvent.eventName,
-            _dartObjectToJsObject(branchEvent.toMap()), contentItems);
+        BranchJS.logEvent(branchEvent.eventName, _dartObjectToJsObject(branchEvent.toMap()), contentItems.toJS);
       }
     } catch (e) {
       debugPrint('trackContent() error: ${e.toString()}');
@@ -257,8 +238,7 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   @override
   void trackContentWithoutBuo({required BranchEvent branchEvent}) {
     try {
-      BranchJS.logEvent(
-          branchEvent.eventName, _dartObjectToJsObject(branchEvent.toMap()));
+      BranchJS.logEvent(branchEvent.eventName, _dartObjectToJsObject(branchEvent.toMap()));
     } catch (e) {
       debugPrint('trackContentWithoutBuo() error: ${e.toString()}');
     }
@@ -267,9 +247,7 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   ///Mark the content referred by this object as viewed. This increment the view count of the contents referred by this object.
   @override
   void registerView({required BranchUniversalObject buo}) {
-    BranchEvent branchEvent =
-        BranchEvent.standardEvent(BranchStandardEvent.VIEW_ITEM);
-
+    BranchEvent branchEvent = BranchEvent.standardEvent(BranchStandardEvent.VIEW_ITEM);
     // This might not be exactly the same thing as BUO.registerView, but there's no clear implementation for web sdk
     trackContent(buo: [buo], branchEvent: branchEvent);
   }
@@ -277,26 +255,24 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   ///Add key value pairs to all requests
   @override
   void setRequestMetadata(String key, String value) {
-    _metaData[key] = value;
+    BranchJS.setRequestMetadata(key, value);
   }
 
   ///For Android: Publish this BUO with Google app indexing so that the contents will be available with google search
   ///For iOS:     List items on Spotlight
   @override
-  Future<bool> listOnSearch(
-      {required BranchUniversalObject buo,
-      BranchLinkProperties? linkProperties}) async {
-    throw UnsupportedError('listOnSearch() Not supported by Branch JS SDK');
+  Future<bool> listOnSearch({required BranchUniversalObject buo, BranchLinkProperties? linkProperties}) async {
+    debugPrint('listOnSearch() Not supported by Branch JS SDK');
+    return true;
   }
 
   ///For Android: Remove the BUO from the local indexing if it is added to the local indexing already
   ///             This will remove the content from Google(Firebase) and other supported Indexing services
   ///For iOS:     Remove Branch Universal Object from Spotlight if privately indexed
   @override
-  Future<bool> removeFromSearch(
-      {required BranchUniversalObject buo,
-      BranchLinkProperties? linkProperties}) async {
-    throw UnsupportedError('removeFromSearch() Not supported by Branch JS SDK');
+  Future<bool> removeFromSearch({required BranchUniversalObject buo, BranchLinkProperties? linkProperties}) async {
+    debugPrint('removeFromSearch() Not supported by Branch JS SDK');
+    return true;
   }
 
   ///Indicates whether or not this user has a custom identity specified for them. Note that this is independent of installs.
@@ -312,40 +288,38 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   /// on Android returns notSupported
   @override
   Future<AppTrackingStatus> requestTrackingAuthorization() async {
-    throw UnsupportedError(
-        'requestTrackingAuthorization() Not available in Branch JS SDK');
+    debugPrint('requestTrackingAuthorization() Not supported by Branch JS SDK');
+    return AppTrackingStatus.notSupported;
   }
 
   /// return AppTrackingStatus
   /// on Android returns notSupported
   @override
   Future<AppTrackingStatus> getTrackingAuthorizationStatus() async {
-    throw UnsupportedError(
-        'getTrackingAuthorizationStatus() Not available in Branch JS SDK');
+    debugPrint('getTrackingAuthorizationStatus() Not supported by Branch JS SDK');
+    return AppTrackingStatus.notSupported;
   }
 
   /// return advertising identifier (ie tracking data).
   /// on Android returns empty string
   @override
   Future<String> getAdvertisingIdentifier() async {
-    throw UnsupportedError(
-        'getAdvertisingIdentifier() Not available in Branch JS SDK');
+    debugPrint('getAdvertisingIdentifier() Not supported by Branch JS SDK');
+    return '';
   }
 
   ///Use the SDK integration validator to check that you've added the Branch SDK and
   ///handle deep links correctly when you first integrate Branch into your app.
   @override
   void validateSDKIntegration() {
-    throw UnsupportedError(
-        'validateSDKIntegration() not available in Branch JS SDK');
+    throw UnsupportedError('validateSDKIntegration() not available in Branch JS SDK');
   }
 
   ///Sets the duration in milliseconds that the system should wait for initializing
   ///a network * request.
   @override
   void setConnectTimeout(int connectTimeout) {
-    throw UnsupportedError(
-        'setConnectTimeout() Not available in Branch JS SDK');
+    debugPrint('setConnectTimeout() Not supported by Branch JS SDK');
   }
 
   ///Sets the duration in milliseconds that the system should wait for a response
@@ -354,7 +328,7 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   ///retries as set in setRetryCount(int).
   @override
   void setTimeout(int timeout) {
-    throw UnsupportedError('setTimeout() Not available in Branch JS SDK');
+    debugPrint('setTimeout() Not supported by Branch JS SDK');
   }
 
   ///Sets the max number of times to re-attempt a timed-out request to the Branch API, before
@@ -364,41 +338,39 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
   /// determine if the max retry count will be attempted.
   @override
   void setRetryCount(int retryCount) {
-    throw UnsupportedError('setRetryCount() Not available in Branch JS SDK');
+    debugPrint('setRetryCount() Not supported by Branch JS SDK');
   }
 
   ///Sets the amount of time in milliseconds to wait before re-attempting a
   ///timed-out request to the Branch API. Default 1000 ms.
   @override
   void setRetryInterval(int retryInterval) {
-    throw UnsupportedError('setRetryInterval() Not available in Branch JS SDK');
+    debugPrint('setRetryInterval() Not supported by Branch JS SDK');
   }
 
   ///Gets the available last attributed touch data with a custom set attribution window.
   @override
-  Future<BranchResponse> getLastAttributedTouchData(
-      {int? attributionWindow}) async {
+  Future<BranchResponse> getLastAttributedTouchData({int? attributionWindow}) async {
     Completer<BranchResponse> responseCompleter = Completer();
 
     try {
-      BranchJS.lastAttributedTouchData(attributionWindow,
-          js.allowInterop((err, data) {
-        if (err == null) {
-          if (data != null) {
-            responseCompleter.complete(
-                BranchResponse.success(result: _jsObjectToDartObject(data)));
-          } else {
-            responseCompleter.complete(BranchResponse.success(result: {}));
-          }
-        } else {
-          responseCompleter.complete(BranchResponse.error(
-              errorCode: '999', errorMessage: err.toString()));
-        }
-      }));
+      BranchJS.lastAttributedTouchData(
+          attributionWindow?.toJS,
+          (JSAny? err, JSAny? data) {
+            if (err == null) {
+              if (data != null) {
+                responseCompleter.complete(BranchResponse.success(result: _jsObjectToDartObject(data)));
+              } else {
+                responseCompleter.complete(BranchResponse.success(result: {}));
+              }
+            } else {
+              responseCompleter.complete(BranchResponse.error(errorCode: '999', errorMessage: err.toString()));
+            }
+          }.toJS);
     } catch (e) {
       debugPrint('getLastAttributedTouchData() error: ${e.toString()}');
-      responseCompleter.complete(BranchResponse.error(
-          errorCode: '-1', errorMessage: 'getLastAttributedTouchData() error'));
+      responseCompleter
+          .complete(BranchResponse.error(errorCode: '-1', errorMessage: 'getLastAttributedTouchData() error'));
     }
     return responseCompleter.future;
   }
@@ -419,25 +391,22 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
     Map<String, dynamic> linkData = {...linkProperties.toMap(), 'data': data};
 
     try {
-      BranchJS.qrCode(_dartObjectToJsObject(linkData),
+      BranchJS.qrCode(
+          _dartObjectToJsObject(linkData),
           _dartObjectToJsObject(qrCodeSettings.toMap()),
-          js.allowInterop((err, qrCode) {
-        if (err == null) {
-          if (qrCode != null) {
-            responseCompleter.complete(
-                BranchResponse.success(result: qrCode.rawBuffer.asUint8List()));
-          } else {
-            responseCompleter.complete(BranchResponse.error(
-                errorCode: '-1', errorMessage: 'Qrcode generate error'));
-          }
-        } else {
-          responseCompleter.complete(BranchResponse.error(
-              errorCode: '-1', errorMessage: err.toString()));
-        }
-      }));
+          (JSAny? err, QrCodeData? qrCode) {
+            if (err == null) {
+              if (qrCode != null) {
+                responseCompleter.complete(BranchResponse.success(result: qrCode.rawBuffer.toDart.asUint8List()));
+              } else {
+                responseCompleter.complete(BranchResponse.error(errorCode: '-1', errorMessage: 'Qrcode generate error'));
+              }
+            } else {
+              responseCompleter.complete(BranchResponse.error(errorCode: '-1', errorMessage: err.toString()));
+            }
+          }.toJS);
     } catch (e) {
-      responseCompleter.complete(BranchResponse.error(
-          errorCode: '-1', errorMessage: 'qrCode generate error'));
+      responseCompleter.complete(BranchResponse.error(errorCode: '-1', errorMessage: 'qrCode generate error'));
     }
     return responseCompleter.future;
   }
@@ -449,22 +418,18 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
       required BranchLinkProperties linkProperties,
       required BranchQrCode qrCodeSettings}) async {
     try {
-      BranchResponse response = await getQRCodeAsData(
-          buo: buo,
-          linkProperties: linkProperties,
-          qrCodeSettings: qrCodeSettings);
+      BranchResponse response =
+          await getQRCodeAsData(buo: buo, linkProperties: linkProperties, qrCodeSettings: qrCodeSettings);
       if (response.success) {
         return BranchResponse.success(
             result: Image.memory(
           response.result,
         ));
       } else {
-        return BranchResponse.error(
-            errorCode: response.errorCode, errorMessage: response.errorMessage);
+        return BranchResponse.error(errorCode: response.errorCode, errorMessage: response.errorMessage);
       }
     } catch (error) {
-      return BranchResponse.error(
-          errorCode: "-1", errorMessage: error.toString());
+      return BranchResponse.error(errorCode: "-1", errorMessage: error.toString());
     }
   }
 
@@ -474,56 +439,65 @@ class FlutterBranchSdkWeb extends FlutterBranchSdkPlatform {
       required BranchLinkProperties linkProperties,
       required Uint8List icon,
       required String title}) {
-    showShareSheet(
-        buo: buo, linkProperties: linkProperties, messageText: title);
+    showShareSheet(buo: buo, linkProperties: linkProperties, messageText: title);
   }
 
   ///Have Branch end the current deep link session and start a new session with the provided URL.
   @override
   void handleDeepLink(String url) {
-    js.context.callMethod('open', [url, '_self']);
+    globalContext.callMethodVarArgs('open'.toJS, [url.toJS, '_self'.toJS]);
   }
 
   /// Add a Partner Parameter for Facebook.
   /// Once set, this parameter is attached to installs, opens and events until cleared or the app restarts.
   /// See Facebook's documentation for details on valid parameters
   @override
-  void addFacebookPartnerParameter(
-      {required String key, required String value}) {
-    throw UnsupportedError(
-        'addFacebookPartnerParameter() Not available in Branch JS SDK');
+  void addFacebookPartnerParameter({required String key, required String value}) {
+    debugPrint('addFacebookPartnerParameter() Not supported by Branch JS SDK');
   }
 
   /// Clears all Partner Parameters
   @override
   void clearPartnerParameters() {
-    throw UnsupportedError(
-        'clearPartnerParameters() Not available in Branch JS SDK');
+    debugPrint('clearPartnerParameters() Not supported by Branch JS SDK');
   }
 
   /// Add the pre-install campaign analytics
   @override
   void setPreinstallCampaign(String value) {
-    throw UnsupportedError(
-        'setPreinstallCampaign() Not available in Branch JS SDK');
+    debugPrint('setPreinstallCampaign() Not supported by Branch JS SDK');
   }
 
   /// Add the pre-install campaign analytics
   @override
   void setPreinstallPartner(String value) {
-    throw UnsupportedError(
-        'setPreinstallPartner() Not available in Branch JS SDK');
+    debugPrint('setPreinstallPartner() Not supported by Branch JS SDK');
   }
 
   ///Add a Partner Parameter for Snap.
   ///Once set, this parameter is attached to installs, opens and events until cleared or the app restarts.
   @override
   void addSnapPartnerParameter({required String key, required String value}) {
-    throw UnsupportedError(
-        'addSnapPartnerParameter() Not available in Branch JS SDK');
+    debugPrint('addSnapPartnerParameter() Not supported by Branch JS SDK');
   }
 
   void close() {
     _initSessionStream.close();
+  }
+
+  /// Sets the value of parameters required by Google Conversion APIs for DMA Compliance in EEA region.
+  /// [eeaRegion] `true` If European regulations, including the DMA, apply to this user and conversion.
+  /// [adPersonalizationConsent] `true` If End user has granted/denied ads personalization consent.
+  /// [adUserDataUsageConsent] `true If User has granted/denied consent for 3P transmission of user level data for ads.
+  @override
+  void setDMAParamsForEEA(
+      {required bool eeaRegion, required bool adPersonalizationConsent, required bool adUserDataUsageConsent}) {
+    BranchJS.setDMAParamsForEEA(eeaRegion, adPersonalizationConsent, adUserDataUsageConsent);
+  }
+
+  /// Sets the consumer protection attribution level.
+  @override
+  void setConsumerProtectionAttributionLevel(BranchAttributionLevel branchAttributionLevel) {
+    debugPrint('setConsumerProtectionAttributionLevel() Not supported by Branch JS SDK');
   }
 }

@@ -2,6 +2,12 @@ include: package:flutter_lints/flutter.yaml
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+formatter:
+  page_width: 123
+
 linter:
   rules:
     constant_identifier_names: false
+    # public_member_api_docs: true
+    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule

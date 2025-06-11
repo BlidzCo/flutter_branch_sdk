@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -23,13 +24,15 @@ import java.util.Map;
 import io.branch.indexing.BranchUniversalObject;
 import io.branch.referral.Branch;
 import io.branch.referral.BranchError;
-import io.branch.referral.BuildConfig;
+import io.branch.referral.BranchLogger;
+import io.branch.referral.Defines;
 import io.branch.referral.QRCode.BranchQRCode;
 import io.branch.referral.ServerRequestGetLATD;
 import io.branch.referral.util.BranchEvent;
 import io.branch.referral.util.LinkProperties;
 import io.branch.referral.util.ShareSheetStyle;
 import io.branch.referral.validators.IntegrationValidator;
+import io.flutter.embedding.android.FlutterFragmentActivity;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.embedding.engine.plugins.activity.ActivityAware;
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding;
@@ -49,21 +52,63 @@ public class FlutterBranchSdkPlugin
     private static final String DEBUG_NAME = "FlutterBranchSDK";
     private static final String MESSAGE_CHANNEL = "flutter_branch_sdk/message";
     private static final String EVENT_CHANNEL = "flutter_branch_sdk/event";
-    private static final String PLUGIN_NAME = "Flutter";
+    private final FlutterBranchSdkHelper branchSdkHelper = new FlutterBranchSdkHelper();
+    private final JSONObject requestMetadata = new JSONObject();
+    private final JSONObject facebookParameters = new JSONObject();
+    private final JSONObject snapParameters = new JSONObject();
+    private final ArrayList<String> preInstallParameters = new ArrayList<>();
+    private final ArrayList<String> campaingParameters = new ArrayList<>();
     private Activity activity;
     private Context context;
     private ActivityPluginBinding activityPluginBinding;
     private EventSink eventSink = null;
     private Map<String, Object> sessionParams = null;
     private BranchError initialError = null;
-    private final FlutterBranchSdkHelper branchSdkHelper = new FlutterBranchSdkHelper();
+    /**
+     * ---------------------------------------------------------------------------------------------
+     * Branch SDK Call Methods
+     * --------------------------------------------------------------------------------------------
+     **/
+    private final Branch.BranchReferralInitListener branchReferralInitListener = new Branch.BranchReferralInitListener() {
+        @Override
+        public void onInitFinished(JSONObject params, BranchError error) {
+            LogUtils.debug(DEBUG_NAME, "triggered onInitFinished");
+            if (error == null) {
+                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - params: " + params.toString());
+                try {
+                    sessionParams = branchSdkHelper.paramsToMap(params);
+                } catch (JSONException e) {
+                    LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error to Map: " + e.getLocalizedMessage());
+                    return;
+                }
+                if (eventSink != null) {
+                    eventSink.success(sessionParams);
+                    sessionParams = null;
+                }
+            } else if (error.getErrorCode() == BranchError.ERR_BRANCH_ALREADY_INITIALIZED) {
+                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener : " + error.getMessage());
+                try {
+                    sessionParams = branchSdkHelper.paramsToMap(Branch.getInstance().getLatestReferringParams());
+                } catch (JSONException e) {
+                    LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error to Map: " + e.getLocalizedMessage());
+                    return;
+                }
+                if (eventSink != null) {
+                    eventSink.success(sessionParams);
+                    sessionParams = null;
+                }
+            } else {
+                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error: " + error);
+                if (eventSink != null) {
+                    eventSink.error(String.valueOf(error.getErrorCode()), error.getMessage(), null);
+                    initialError = null;
+                } else {
+                    initialError = error;
+                }
+            }
+        }
+    };
     private boolean isInitialized = false;
-    private final JSONObject requestMetadata = new JSONObject();
-    private final JSONObject facebookParameters = new JSONObject();
-    private final JSONObject snapParameters = new JSONObject();
-    private final ArrayList<String> preInstallParameters = new ArrayList<String>();
-    private final ArrayList<String> campaingParameters = new ArrayList<String>();
-    private Intent initialIntent = null;
 
     /**
      * ---------------------------------------------------------------------------------------------
@@ -91,14 +136,19 @@ public class FlutterBranchSdkPlugin
 
         methodChannel.setMethodCallHandler(this);
         eventChannel.setStreamHandler(this);
+
+        FlutterBranchSdkInit.init(context);
     }
 
     private void setActivity(Activity activity) {
-        LogUtils.debug(DEBUG_NAME, "triggered setActivity once");
-        if (this.activity == null) {
-            this.activity = activity;
-            initialIntent = activity.getIntent();
-            activity.getApplication().registerActivityLifecycleCallbacks(this);
+        LogUtils.debug(DEBUG_NAME, "triggered setActivity");
+
+        this.activity = activity;
+        activity.getApplication().registerActivityLifecycleCallbacks(this);
+
+        if (this.activity != null && FlutterFragmentActivity.class.isAssignableFrom(activity.getClass())) {
+            Branch.sessionBuilder(activity).withCallback(branchReferralInitListener)
+                    .withData(activity.getIntent().getData()).init();
         }
     }
 
@@ -176,14 +226,13 @@ public class FlutterBranchSdkPlugin
      **/
     @Override
     public void onActivityCreated(@NonNull Activity activity, Bundle bundle) {
+        LogUtils.debug(DEBUG_NAME, "triggered onActivityCreated: " + activity.getClass().getName());
     }
 
     @Override
     public void onActivityStarted(@NonNull Activity activity) {
-        LogUtils.debug(DEBUG_NAME, "triggered onActivityStarted");
-        if (!isInitialized) {
-            // Delay session initialization
-            Branch.expectDelayedSessionInitialization(true);
+        LogUtils.debug(DEBUG_NAME, "triggered onActivityStarted: " + activity.getClass().getName());
+        if (this.activity != activity) {
             return;
         }
         LogUtils.debug(DEBUG_NAME, "triggered SessionBuilder init");
@@ -199,15 +248,19 @@ public class FlutterBranchSdkPlugin
             Branch.sessionBuilder(this.activity).withCallback(branchReferralInitListener).withData(newIntent.getData())
                     .reInit();
         }
+        LogUtils.debug(DEBUG_NAME, "triggered onActivityResumed: " + activity.getClass().getName());
     }
 
     @Override
     public void onActivityPaused(@NonNull Activity activity) {
+        LogUtils.debug(DEBUG_NAME, "triggered onActivityPaused: " + activity.getClass().getName());
+        // Delay session initialization
+        Branch.expectDelayedSessionInitialization(true);
     }
 
     @Override
     public void onActivityStopped(@NonNull Activity activity) {
-        LogUtils.debug(DEBUG_NAME, "triggered onActivityStopped");
+        LogUtils.debug(DEBUG_NAME, "triggered onActivityStopped: " + activity.getClass().getName());
     }
 
     @Override
@@ -216,7 +269,7 @@ public class FlutterBranchSdkPlugin
 
     @Override
     public void onActivityDestroyed(@NonNull Activity activity) {
-        LogUtils.debug(DEBUG_NAME, "triggered onActivityDestroyed");
+        LogUtils.debug(DEBUG_NAME, "triggered onActivityDestroyed: " + activity.getClass().getName());
         if (this.activity == activity) {
             activity.getApplication().unregisterActivityLifecycleCallbacks(this);
         }
@@ -230,9 +283,6 @@ public class FlutterBranchSdkPlugin
     @Override
     public boolean onNewIntent(@NonNull Intent intent) {
         LogUtils.debug(DEBUG_NAME, "triggered onNewIntent");
-        if (!isInitialized) {
-            return false;
-        }
         if (this.activity == null) {
             return false;
         }
@@ -338,70 +388,40 @@ public class FlutterBranchSdkPlugin
             case "addSnapPartnerParameter":
                 addSnapPartnerParameter(call);
                 break;
+            case "setDMAParamsForEEA":
+                setDMAParamsForEEA(call);
+                break;
+            case "setConsumerProtectionAttributionLevel":
+                setConsumerProtectionAttributionLevel(call);
+                break;
             default:
                 result.notImplemented();
                 break;
         }
     }
 
-    /**
-     * ---------------------------------------------------------------------------------------------
-     * Branch SDK Call Methods
-     * --------------------------------------------------------------------------------------------
-     **/
-    private final Branch.BranchReferralInitListener branchReferralInitListener = new Branch.BranchReferralInitListener() {
-        @Override
-        public void onInitFinished(JSONObject params, BranchError error) {
-            LogUtils.debug(DEBUG_NAME, "triggered onInitFinished");
-            if (error == null) {
-                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - params: " + params.toString());
-                try {
-                    sessionParams = branchSdkHelper.paramsToMap(params);
-                } catch (JSONException e) {
-                    LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error to Map: " + e.getLocalizedMessage());
-                    return;
-                }
-                if (eventSink != null) {
-                    eventSink.success(sessionParams);
-                    sessionParams = null;
-                }
-            } else {
-                LogUtils.debug(DEBUG_NAME, "BranchReferralInitListener - error: " + error);
-                if (eventSink != null) {
-                    eventSink.error(String.valueOf(error.getErrorCode()), error.getMessage(), null);
-                    initialError = null;
-                } else {
-                    initialError = error;
-                }
-            }
-        }
-    };
-
     private void setupBranch(MethodCall call, final Result result) {
         LogUtils.debug(DEBUG_NAME, "triggered setupBranch");
         if (!(call.arguments instanceof Map)) {
             throw new IllegalArgumentException("Map argument expected");
         }
+
         if (isInitialized) {
             result.success(Boolean.TRUE);
         }
 
         HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
-        if ((Boolean) argsMap.get("useTestKey")) {
-            Branch.enableTestMode();
+
+        if ((Boolean) argsMap.get("enableLogging")) {
+            Branch.enableLogging(BranchLogger.BranchLogLevel.VERBOSE);
+        } else {
+            Branch.disableLogging();
         }
-        if (BuildConfig.DEBUG) {
-            if ((Boolean) argsMap.get("enableLogging")) {
-                Branch.enableLogging();
-            }
-        }
-        Branch.registerPlugin(PLUGIN_NAME, (String) argsMap.get("version"));
-        Branch.getAutoInstance(this.context);
 
         if (requestMetadata.length() > 0) {
-            Iterator keys = requestMetadata.keys();
+            Iterator<String> keys = requestMetadata.keys();
             while (keys.hasNext()) {
-                String key = (String) keys.next();
+                String key = keys.next();
                 try {
                     Branch.getInstance().setRequestMetadata(key, requestMetadata.getString(key));
                 } catch (JSONException e) {
@@ -410,9 +430,9 @@ public class FlutterBranchSdkPlugin
             }
         }
         if (facebookParameters.length() > 0) {
-            Iterator keys = facebookParameters.keys();
+            Iterator<String> keys = facebookParameters.keys();
             while (keys.hasNext()) {
-                String key = (String) keys.next();
+                String key = keys.next();
                 try {
                     Branch.getInstance().addFacebookPartnerParameterWithName(key, facebookParameters.getString(key));
                 } catch (JSONException e) {
@@ -421,9 +441,9 @@ public class FlutterBranchSdkPlugin
             }
         }
         if (snapParameters.length() > 0) {
-            Iterator keys = snapParameters.keys();
+            Iterator<String> keys = snapParameters.keys();
             while (keys.hasNext()) {
-                String key = (String) keys.next();
+                String key = keys.next();
                 try {
                     Branch.getInstance().addSnapPartnerParameterWithName(key, snapParameters.getString(key));
                 } catch (JSONException e) {
@@ -441,31 +461,27 @@ public class FlutterBranchSdkPlugin
                 Branch.getAutoInstance(context).setPreinstallCampaign(campaingParameters.get(i));
             }
         }
+
         if ((Boolean) argsMap.get("disableTracking")) {
             Branch.getInstance().disableTracking(true);
+        } else {
+            Branch.getInstance().disableTracking(false);
         }
+
+        final String branchAttributionLevelString = call.argument("branchAttributionLevel");
+        if (branchAttributionLevelString != null && !branchAttributionLevelString.isEmpty()) {
+            Branch.getInstance().setConsumerProtectionAttributionLevel(
+                    Defines.BranchAttributionLevel.valueOf(branchAttributionLevelString));
+        }
+
+        LogUtils.debug(DEBUG_NAME, "notifyNativeToInit()");
+        Branch.notifyNativeToInit();
         isInitialized = true;
-
-        if (this.activity == null) {
-            initialIntent = null;
-            result.success(Boolean.TRUE);
-            return;
-        }
-
-        if (initialIntent == null) {
-            initialIntent = new Intent(this.context, this.activity.getClass());
-            initialIntent.setAction(Intent.ACTION_MAIN);
-            initialIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-        }
-        initialIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        initialIntent.putExtra("branch_force_new_session", true);
-        this.context.startActivity(initialIntent);
-        initialIntent = null;
         result.success(Boolean.TRUE);
     }
 
     private void validateSDKIntegration() {
-        IntegrationValidator.validate(activity);
+        IntegrationValidator.validate(this.activity);
     }
 
     private void getShortUrl(MethodCall call, final Result result) {
@@ -481,7 +497,7 @@ public class FlutterBranchSdkPlugin
             @Override
             public void onLinkCreate(String url, BranchError error) {
 
-                if ((error == null) || (error != null && url != null)) {
+                if ((error == null && url != null) || (error != null && url != null)) {
                     LogUtils.debug(DEBUG_NAME, "Branch link to share: " + url);
                     response.put("success", true);
                     response.put("url", url);
@@ -507,46 +523,74 @@ public class FlutterBranchSdkPlugin
         String messageTitle = (String) argsMap.get("messageTitle");
         String sharingTitle = (String) argsMap.get("sharingTitle");
         final Map<String, Object> response = new HashMap<>();
-        ShareSheetStyle shareSheetStyle = new ShareSheetStyle(activity, messageTitle, messageText)
-                .setAsFullWidthStyle(true)
-                .setSharingTitle(sharingTitle);
-        buo.showShareSheet(activity,
-                linkProperties,
-                shareSheetStyle,
-                new Branch.ExtendedBranchLinkShareListener() {
-                    @Override
-                    public void onShareLinkDialogLaunched() {
-                    }
 
-                    @Override
-                    public void onShareLinkDialogDismissed() {
-                    }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP_MR1) {
 
-                    @Override
-                    public void onLinkShareResponse(String sharedLink, String sharedChannel, BranchError error) {
-                        if (error == null) {
-                            LogUtils.debug(DEBUG_NAME, "Branch link share: " + sharedLink);
-                            response.put("success", Boolean.TRUE);
-                            response.put("url", sharedLink);
-                        } else {
-                            response.put("success", Boolean.FALSE);
-                            response.put("errorCode", String.valueOf(error.getErrorCode()));
-                            response.put("errorMessage", error.getMessage());
+            Branch.getInstance().share(activity, buo, linkProperties, new Branch.BranchNativeLinkShareListener() {
+                @Override
+                public void onLinkShareResponse(String sharedLink, BranchError error) {
+                    if (error == null) {
+                        LogUtils.debug(DEBUG_NAME, "Branch link share: " + sharedLink);
+                        response.put("success", Boolean.TRUE);
+                        response.put("url", sharedLink);
+                    } else {
+                        response.put("success", Boolean.FALSE);
+                        response.put("errorCode", String.valueOf(error.getErrorCode()));
+                        response.put("errorMessage", error.getMessage());
+                    }
+                    result.success(response);
+                }
+
+                @Override
+                public void onChannelSelected(String channelName) {
+                    LogUtils.debug(DEBUG_NAME, "Branch link share channel: " + channelName);
+                }
+            },
+                    messageTitle,
+                    messageText);
+        } else {
+            ShareSheetStyle shareSheetStyle = new ShareSheetStyle(activity, messageTitle, messageText)
+                    .setAsFullWidthStyle(true)
+                    .setSharingTitle(sharingTitle);
+
+            buo.showShareSheet(activity,
+                    linkProperties,
+                    shareSheetStyle,
+                    new Branch.ExtendedBranchLinkShareListener() {
+                        @Override
+                        public void onShareLinkDialogLaunched() {
                         }
-                        result.success(response);
-                    }
 
-                    @Override
-                    public void onChannelSelected(String channelName) {
+                        @Override
+                        public void onShareLinkDialogDismissed() {
+                        }
 
-                    }
+                        @Override
+                        public void onLinkShareResponse(String sharedLink, String sharedChannel, BranchError error) {
+                            if (error == null) {
+                                LogUtils.debug(DEBUG_NAME, "Branch link share: " + sharedLink);
+                                response.put("success", Boolean.TRUE);
+                                response.put("url", sharedLink);
+                            } else {
+                                response.put("success", Boolean.FALSE);
+                                response.put("errorCode", String.valueOf(error.getErrorCode()));
+                                response.put("errorMessage", error.getMessage());
+                            }
+                            result.success(response);
+                        }
 
-                    @Override
-                    public boolean onChannelSelected(String channelName, BranchUniversalObject buo,
-                            LinkProperties linkProperties) {
-                        return false;
-                    }
-                });
+                        @Override
+                        public void onChannelSelected(String channelName) {
+
+                        }
+
+                        @Override
+                        public boolean onChannelSelected(String channelName, BranchUniversalObject buo,
+                                LinkProperties linkProperties) {
+                            return false;
+                        }
+                    });
+        }
     }
 
     private void registerView(MethodCall call) {
@@ -566,35 +610,11 @@ public class FlutterBranchSdkPlugin
 
     private void listOnSearch(MethodCall call, Result result) {
         LogUtils.debug(DEBUG_NAME, "triggered listOnSearch");
-        if (!(call.arguments instanceof Map)) {
-            throw new IllegalArgumentException("Map argument expected");
-        }
-        HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
-        BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
-        if (argsMap.containsKey("lp")) {
-            LinkProperties linkProperties = branchSdkHelper
-                    .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
-            // buo.listOnGoogleSearch(context, linkProperties);
-        } else {
-            // buo.listOnGoogleSearch(context);
-        }
         result.success(Boolean.TRUE);
     }
 
     private void removeFromSearch(MethodCall call, Result result) {
         LogUtils.debug(DEBUG_NAME, "triggered removeFromSearch");
-        if (!(call.arguments instanceof Map)) {
-            throw new IllegalArgumentException("Map argument expected");
-        }
-        HashMap<String, Object> argsMap = (HashMap<String, Object>) call.arguments;
-        BranchUniversalObject buo = branchSdkHelper.convertToBUO((HashMap<String, Object>) argsMap.get("buo"));
-        if (argsMap.containsKey("lp")) {
-            LinkProperties linkProperties = branchSdkHelper
-                    .convertToLinkProperties((HashMap<String, Object>) argsMap.get("lp"));
-            // buo.removeFromLocalIndexing(context, linkProperties);
-        } else {
-            // buo.removeFromLocalIndexing(context);
-        }
         result.success(Boolean.TRUE);
     }
 
@@ -653,16 +673,15 @@ public class FlutterBranchSdkPlugin
         }
         final String key = call.argument("key");
         final String value = call.argument("value");
-        if (!isInitialized) {
-            if (requestMetadata.has(key) && value.isEmpty()) {
-                requestMetadata.remove(key);
-            } else {
-                try {
-                    requestMetadata.put(key, value);
-                } catch (JSONException error) {
-                }
+
+        if (requestMetadata.has(key) && value.isEmpty()) {
+            requestMetadata.remove(key);
+        } else {
+            try {
+                requestMetadata.put(key, value);
+            } catch (JSONException error) {
+                return;
             }
-            return;
         }
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
@@ -795,7 +814,7 @@ public class FlutterBranchSdkPlugin
                                     jo.put("latd", jsonObject);
                                     response.put("data", branchSdkHelper.paramsToMap(jo));
                                 } catch (JSONException e) {
-                                    e.printStackTrace();
+                                    LogUtils.debug(DEBUG_NAME, e.getLocalizedMessage());
                                 }
                             } else {
                                 response.put("success", Boolean.FALSE);
@@ -818,7 +837,7 @@ public class FlutterBranchSdkPlugin
                                     jo.put("latd", jsonObject);
                                     response.put("data", branchSdkHelper.paramsToMap(jo));
                                 } catch (JSONException e) {
-                                    e.printStackTrace();
+                                    LogUtils.debug(DEBUG_NAME, e.getLocalizedMessage());
                                 }
                             } else {
                                 response.put("success", Boolean.FALSE);
@@ -888,16 +907,14 @@ public class FlutterBranchSdkPlugin
         }
         final String key = call.argument("key");
         final String value = call.argument("value");
-        if (!isInitialized) {
-            if (facebookParameters.has(key) && value.isEmpty()) {
-                facebookParameters.remove(key);
-            } else {
-                try {
-                    facebookParameters.put(key, value);
-                } catch (JSONException error) {
-                }
+        if (facebookParameters.has(key) && value.isEmpty()) {
+            facebookParameters.remove(key);
+        } else {
+            try {
+                facebookParameters.put(key, value);
+            } catch (JSONException error) {
+                LogUtils.debug(DEBUG_NAME, error.getLocalizedMessage());
             }
-            return;
         }
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
@@ -923,10 +940,8 @@ public class FlutterBranchSdkPlugin
             throw new IllegalArgumentException("Map argument expected");
         }
         final String value = call.argument("value");
-        if (!isInitialized) {
-            campaingParameters.add(value);
-            return;
-        }
+        campaingParameters.add(value);
+
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
@@ -941,10 +956,8 @@ public class FlutterBranchSdkPlugin
             throw new IllegalArgumentException("Map argument expected");
         }
         final String value = call.argument("value");
-        if (!isInitialized) {
-            preInstallParameters.add(value);
-            return;
-        }
+        preInstallParameters.add(value);
+
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
@@ -960,22 +973,43 @@ public class FlutterBranchSdkPlugin
         }
         final String key = call.argument("key");
         final String value = call.argument("value");
-        if (!isInitialized) {
-            if (snapParameters.has(key) && value.isEmpty()) {
-                snapParameters.remove(key);
-            } else {
-                try {
-                    snapParameters.put(key, value);
-                } catch (JSONException error) {
-                }
+        if (snapParameters.has(key) && value.isEmpty()) {
+            snapParameters.remove(key);
+        } else {
+            try {
+                snapParameters.put(key, value);
+            } catch (JSONException error) {
+                LogUtils.debug(DEBUG_NAME, error.getLocalizedMessage());
             }
-            return;
         }
+
         new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
                 Branch.getAutoInstance(context).addSnapPartnerParameterWithName(key, value);
             }
         });
+    }
+
+    private void setDMAParamsForEEA(MethodCall call) {
+        LogUtils.debug(DEBUG_NAME, "triggered setDMAParamsForEEA");
+        if (!(call.arguments instanceof Map)) {
+            throw new IllegalArgumentException("Map argument expected");
+        }
+        final boolean eeaRegion = Boolean.TRUE.equals(call.argument("eeaRegion"));
+        final boolean adPersonalizationConsent = Boolean.TRUE.equals(call.argument("adPersonalizationConsent"));
+        final boolean adUserDataUsageConsent = Boolean.TRUE.equals(call.argument("adUserDataUsageConsent"));
+
+        Branch.getInstance().setDMAParamsForEEA(eeaRegion, adPersonalizationConsent, adUserDataUsageConsent);
+    }
+
+    private void setConsumerProtectionAttributionLevel(MethodCall call) {
+        LogUtils.debug(DEBUG_NAME, "triggered setConsumerProtectionAttributionLevel");
+        if (!(call.arguments instanceof Map)) {
+            throw new IllegalArgumentException("Map argument expected");
+        }
+        final String branchAttributionLevelString = call.argument("branchAttributionLevel");
+        Branch.getInstance().setConsumerProtectionAttributionLevel(
+                Defines.BranchAttributionLevel.valueOf(branchAttributionLevelString));
     }
 }

@@ -1,15 +1,6 @@
-part of flutter_branch_sdk_objects;
+part of 'branch_universal_object.dart';
 
-enum BranchCondition {
-  OTHER,
-  NEW,
-  GOOD,
-  FAIR,
-  POOR,
-  USED,
-  REFURBISHED,
-  EXCELLENT
-}
+enum BranchCondition { OTHER, NEW, GOOD, FAIR, POOR, USED, REFURBISHED, EXCELLENT }
 
 enum BranchCurrencyType {
   AED,
@@ -341,8 +332,6 @@ class BranchContentMetaData {
         return "Toys & Games";
       case BranchProductCategory.VEHICLES_AND_PARTS:
         return "Vehicles & Parts";
-      default:
-        return "Home & Garden";
     }
   }
 
@@ -357,12 +346,7 @@ class BranchContentMetaData {
     return this;
   }
 
-  BranchContentMetaData setAddress(
-      {String? street,
-      String? city,
-      String? region,
-      String? country,
-      String? postalCode}) {
+  BranchContentMetaData setAddress({String? street, String? city, String? region, String? country, String? postalCode}) {
     if (street != null) _addressStreet = street;
     if (city != null) _addressCity = city;
     if (region != null) _addressRegion = region;
